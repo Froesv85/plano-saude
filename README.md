@@ -1,196 +1,150 @@
-🏋️ PlanoSaude - Gerencie sua Saúde com Facilidade
-Bem-vindo ao PlanoSaude, um projeto desenvolvido por Santhiago Chapiewski e Vinicius Froes como parte da disciplina Programação WEB, ministrada pelo professor Leonardo Vitazik Neto. Esta aplicação web, construída com Spring Boot, permite gerenciar treinos, refeições, eventos (como consultas médicas) e o peso do usuário, oferecendo suporte tanto para o padrão MVC quanto MVVM. É uma solução prática para quem busca organizar sua rotina de saúde de forma eficiente!
-🌟 O que o PlanoSaude faz?
+# PlanoSaude
 
-Treinos: Registre, edite e remova treinos com descrição e data.
-Refeições: Gerencie suas refeições diárias com facilidade.
-Eventos: Agende e acompanhe eventos como consultas médicas, com validação de conflitos de horário.
-Peso: Monitore seu peso (funcionalidade em desenvolvimento).
-Dashboard: Veja rapidamente os treinos, refeições e eventos do dia.
-Calendário: Visualize eventos agendados (em breve, com integração de um componente de calendário).
+PlanoSaude é uma aplicação web desenvolvida para gerenciar treinos, refeições, eventos e peso do usuário. Construída com Spring Boot, a aplicação suporta os padrões MVC (usando Thymeleaf) e MVVM (via APIs com Swagger).  
+Foi desenvolvida por **Santhiago Chapiewski** e **Vinicius Froes**, com o intuito de atender aos pré-requisitos da matéria **Programação WEB**, ministrada pelo professor **Leonardo Vitazik Neto**.  
 
-✅ Requisitos Atendidos
-Front-end
+## CENTRO UNIVERSITÁRIO – CATÓLICA DE SANTA CATARINA  
+## JARAGUÁ DO SUL - SANTA CATARINA
 
-MVC:
-Configurado com Thymeleaf para renderização de templates.
-Templates criados: dashboard.html, treino.html, alimentacao.html, evento.html, calendario.html.
+## Requisitos
 
+Criar uma aplicação web para gerenciar treinos, refeições e eventos (como consultas médicas), com suporte a padrões MVC e MVVM, incluindo:  
+- **Front-end (MVC)**: Templates Thymeleaf para renderização de páginas (ex.: dashboard, treinos, eventos).  
+- **Front-end (MVVM)**: APIs REST documentadas com Swagger, com pelo menos uma entidade exposta (Evento).  
+- **Back-end**:  
+  - 100% beans de persistência (mínimo duas entidades: Treino, Refeicao, Evento, UsuarioPeso).  
+  - 100% acesso a dados com Spring Data JPA.  
+  - Pelo menos um controller desenvolvido (PlanoController para MVC, controllers REST para MVVM).  
+- **Validações**: Garantir que campos obrigatórios sejam preenchidos (ex.: descrição, data).  
+- **Funcionalidades**: Adicionar, editar e remover treinos, refeições e eventos; visualizar dashboard com informações do dia.
 
-MVVM:
-Configurado com Swagger para documentação e teste de APIs.
-Entidade Evento exposta via API REST.
+## Funcionalidades
 
+- Adicionar, editar e remover treinos, refeições e eventos.  
+- Validação de conflitos de horário para eventos.  
+- Dashboard com visão geral de treinos, refeições e eventos do dia.  
+- APIs REST para gerenciar treinos, refeições e eventos (MVVM).  
+- Suporte a monitoramento de peso (em desenvolvimento).  
 
+## Tecnologias
 
-Back-end
+- Java 17  
+- Spring Boot 3.4.5  
+- Spring Data JPA  
+- H2 Database (desenvolvimento)  
+- Thymeleaf (MVC)  
+- Swagger (MVVM)  
+- Bootstrap  
+- Lombok  
+- SLF4J  
 
-Beans de Persistência (100%):
-Entidades: Treino, Refeicao, Evento, UsuarioPeso.
+## Instalação
 
+### Pré-requisitos
+- Java 17 ou superior  
+- Maven 3.8+  
+- Git  
 
-Data Access (100%):
-Repositórios Spring Data JPA: TreinoRepository, RefeicaoRepository, EventoRepository, UsuarioPesoRepository.
+### Passos
+1. Clone o repositório:  
+   ```
+   git clone https://github.com/seu-usuario/plano-saude.git
+   cd plano-saude
+   ```
+2. Configure o ambiente:  
+   - Verifique o Java: `java -version`  
+   - Verifique o Maven: `mvn -version`  
+3. Configure o banco de dados (H2 por padrão):  
+   Edite `src/main/resources/application.properties` com o seguinte código:  
+   ```properties
+   spring.datasource.url=jdbc:h2:mem:testdb
+   spring.datasource.driverClassName=org.h2.Driver
+   spring.datasource.username=sa
+   spring.datasource.password=
+   spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+   spring.jpa.hibernate.ddl-auto=update
+   ```
+4. Para usar MySQL, adicione ao `pom.xml`:  
+   ```xml
+   <dependency>
+       <groupId>mysql</groupId>
+       <artifactId>mysql-connector-java</artifactId>
+       <version>8.0.33</version>
+   </dependency>
+   ```
+   E atualize `application.properties` com:  
+   ```properties
+   spring.datasource.url=jdbc:mysql://localhost:3306/plano_saude
+   spring.datasource.username=seu-usuario
+   spring.datasource.password=sua-senha
+   spring.jpa.database-platform=org.hibernate.dialect.MySQLDialect
+   spring.jpa.hibernate.ddl-auto=update
+   ```
+5. Configure o Swagger (MVVM):  
+   Adicione ao `pom.xml`:  
+   ```xml
+   <dependency>
+       <groupId>org.springdoc</groupId>
+       <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+       <version>2.6.0</version>
+   </dependency>
+   ```
+6. Execute a aplicação:  
+   ```
+   mvn clean install
+   mvn spring-boot:run
+   ```
+7. Acesse:  
+   - MVC: `http://localhost:8080`  
+   - Swagger (MVVM): `http://localhost:8080/swagger-ui.html`
 
+## Uso
 
-Controllers:
-MVC: PlanoController para gerenciar a interface web.
-REST: EventoController, RefeicaoController, TreinoController para APIs.
+1. Acesse o dashboard em `http://localhost:8080` para ver treinos, refeições e eventos do dia.  
+2. Adicione um treino em `/treino`, uma refeição em `/alimentacao`, ou um evento em `/eventos`.  
+3. Use o Swagger em `/swagger-ui.html` para gerenciar dados via API (ex.: `/api/eventos`).  
+4. Edite ou remova registros diretamente nas respectivas páginas ou via API.
 
+## Estrutura do Projeto
 
+- `PlanoSaudeApplication.java`: Arquivo principal que inicializa a aplicação.  
+- `config/`: Diretório de configurações.  
+  - `AppConfig.java`: Configurações gerais da aplicação.  
+  - `SwaggerConfig.java`: Configurações do Swagger para APIs.  
+- `controller/`: Diretório de controllers.  
+  - `PlanoController.java`: Controller MVC para interface web.  
+  - `EventoController.java`: Controller REST para gerenciar eventos.  
+  - `RefeicaoController.java`: Controller REST para gerenciar refeições.  
+  - `TreinoController.java`: Controller REST para gerenciar treinos.  
+- `model/`: Diretório de entidades.  
+  - `Evento.java`: Entidade para eventos.  
+  - `Refeicao.java`: Entidade para refeições.  
+  - `Treino.java`: Entidade para treinos.  
+  - `UsuarioPeso.java`: Entidade para monitoramento de peso.  
+- `repository/`: Diretório de repositórios JPA.  
+  - `EventoRepository.java`: Repositório para eventos.  
+  - `RefeicaoRepository.java`: Repositório para refeições.  
+  - `TreinoRepository.java`: Repositório para treinos.  
+  - `UsuarioPesoRepository.java`: Repositório para peso.  
+- `service/`: Diretório de serviços.  
+  - `PlanoService.java`: Lógica de negócios da aplicação.  
+- `resources/templates/`: Diretório de templates Thymeleaf.  
+  - `dashboard.html`: Dashboard principal.  
+  - `treino.html`: Página de treinos.  
+  - `alimentacao.html`: Página de refeições.  
+  - `evento.html`: Página de eventos.  
+  - `calendario.html`: Página de calendário (em desenvolvimento).  
 
-🛠️ Tecnologias Utilizadas
+## Contribuição
 
-Java 17
-Spring Boot 3.4.5
-Spring Data JPA
-H2 Database (banco em memória para desenvolvimento)
-Thymeleaf (MVC)
-Swagger (MVVM)
-Bootstrap
-Lombok
-SLF4J
+Contribuições são bem-vindas! Sinta-se à vontade para abrir issues e pull requests.
 
-📂 Estrutura do Projeto
-plano-saude/
-├── src/
-│   ├── main/
-│   │   ├── java/
-│   │   │   └── com/froes/planosaude/
-│   │   │       ├── PlanoSaudeApplication.java
-│   │   │       ├── config/
-│   │   │       │   ├── AppConfig.java
-│   │   │       │   ├── SwaggerConfig.java
-│   │   │       ├── controller/
-│   │   │       │   ├── EventoController.java
-│   │   │       │   ├── Package-info.java
-│   │   │       │   ├── PlanoController.java
-│   │   │       │   ├── RefeicaoController.java
-│   │   │       │   ├── TreinoController.java
-│   │   │       ├── model/
-│   │   │       │   ├── Evento.java
-│   │   │       │   ├── Package-info.java
-│   │   │       │   ├── Refeicao.java
-│   │   │       │   ├── Treino.java
-│   │   │       │   ├── UsuarioPeso.java
-│   │   │       ├── repository/
-│   │   │       │   ├── EventoRepository.java
-│   │   │       │   ├── Package-info.java
-│   │   │       │   ├── RefeicaoRepository.java
-│   │   │       │   ├── TreinoRepository.java
-│   │   │       │   ├── UsuarioPesoRepository.java
-│   │   │       ├── service/
-│   │   │       │   ├── Package-info.java
-│   │   │       │   ├── PlanoService.java
-│   │   │       ├── config/
-│   │   │       │   ├── Package-info.java
-│   │   │       │   └── package-info.java
-│   │   ├── resources/
-│   │   │   ├── static/
-│   │   │   ├── templates/
-│   │   │   │   ├── alimentacao.html
-│   │   │   │   ├── calendario.html
-│   │   │   │   ├── dashboard.html
-│   │   │   │   ├── evento.html
-│   │   │   │   ├── treino.html
-│   │   │   ├── application.properties
-│   ├── test/
-├── pom.xml
-├── README.md
+## Licença
 
-🚀 Como Começar
-Pré-requisitos
+Distribuído sob a [MIT License](LICENSE).
 
-Java 17 ou superior
-Maven 3.8+
-Git
+## Contato
 
-Instalação
-
-Clone o repositório:
-git clone https://github.com/seu-usuario/plano-saude.git
-cd plano-saude
-
-
-Configure o ambiente:
-
-Verifique o Java: java -version
-Verifique o Maven: mvn -version
-
-
-Configure o banco de dados (H2 por padrão):Edite src/main/resources/application.properties se precisar de outro banco:
-spring.datasource.url=jdbc:h2:mem:testdb
-spring.datasource.driverClassName=org.h2.Driver
-spring.datasource.username=sa
-spring.datasource.password=
-spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
-spring.jpa.hibernate.ddl-auto=update
-
-
-Configure o Swagger (para MVVM):Adicione ao pom.xml:
-<dependency>
-    <groupId>org.springdoc</groupId>
-    <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-    <version>2.6.0</version>
-</dependency>
-
-
-Execute a aplicação:
-mvn clean install
-mvn spring-boot:run
-
-
-Acesse:
-
-MVC: http://localhost:8080
-MVVM (Swagger): http://localhost:8080/swagger-ui.html
-
-
-
-🎯 Como Usar
-
-Dashboard (/): Veja treinos, refeições e eventos do dia.
-Treinos (/treino ou /api/treinos): Adicione ou gerencie treinos.
-Refeições (/alimentacao ou /api/refeicoes): Registre suas refeições.
-Eventos (/eventos ou /api/eventos): Agende consultas ou eventos.
-Calendário (/calendario): Visualize eventos (em desenvolvimento).
-
-Exemplo (MVC): Para adicionar um treino, vá até http://localhost:8080/treino, insira a descrição e salve.Exemplo (MVVM): Acesse http://localhost:8080/swagger-ui.html e use /api/eventos para criar eventos.
-🗄️ Configuração de Banco de Dados
-Para usar MySQL:
-
-Adicione a dependência no pom.xml:<dependency>
-    <groupId>mysql</groupId>
-    <artifactId>mysql-connector-java</artifactId>
-    <version>8.0.33</version>
-</dependency>
-
-
-Atualize application.properties:spring.datasource.url=jdbc:mysql://localhost:3306/planosaude
-spring.datasource.username=seu-usuario
-spring.datasource.password=sua-senha
-spring.jpa.database-platform=org.hibernate.dialect.MySQLDialect
-spring.jpa.hibernate.ddl-auto=update
-
-
-
-🤝 Contribuindo
-Quer ajudar? Siga estes passos:
-
-Faça um fork do repositório.
-Crie uma branch: git checkout -b sua-feature
-Commit suas alterações: git commit -m "Adiciona sua feature"
-Envie para o repositório: git push origin sua-feature
-Abra um Pull Request.
-
-Siga nosso Código de Conduta e use Conventional Commits.
-⚠️ Problemas Conhecidos
-
-Peso fixo no dashboard (85.0). Em breve, será dinâmico com UsuarioPeso.
-Visualização de calendário pendente no front-end.
-Suporte a múltiplos usuários requer Spring Security.
-
-📜 Licença
-Licenciado sob a MIT License.
-📞 Contato
-Desenvolvido por Santhiago Chapiewski e Vinicius Froes. Dúvidas ou sugestões? Abra uma issue no GitHub!
+Desenvolvido por **Santhiago Chapiewski** e **Vinicius Froes**.  
+Última atualização: **29 de maio de 2025, 17:12 (BRT)**.  
+Dúvidas ou sugestões? Abra uma issue no GitHub!
