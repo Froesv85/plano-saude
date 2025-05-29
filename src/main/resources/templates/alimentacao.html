@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Adicionar Refeição</title>
+</head>
+<body>
+    <h1>Adicionar Refeição</h1>
+    <div th:if="${erro}" th:text="${erro}" style="color: red;"></div>
+    <form th:action="@{/alimentacao}" th:object="${refeicao}" method="post">
+        <label for="descricao">Descrição:</label>
+        <input type="text" id="descricao" th:field="*{descricao}" />
+        <span th:if="${#fields.hasErrors('descricao')}" th:errors="*{descricao}" style="color: red;"></span><br>
+
+        <label for="data">Data/Hora:</label>
+        <input type="datetime-local" id="data" th:field="*{data}" />
+        <span th:if="${#fields.hasErrors('data')}" th:errors="*{data}" style="color: red;"></span><br>
+
+        <button type="submit">Salvar</button>
+    </form>
+    <a href="/">Voltar</a>
+</body>
+</html>

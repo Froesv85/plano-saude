@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - Saúde Perfeita</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 40px;
+        }
+        .alert-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 400px;
+        }
+        .card {
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .card-header {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+        .btn-custom {
+            margin: 10px;
+            transition: transform 0.2s;
+        }
+        .btn-custom:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <h1>Dashboard - Saúde Perfeita</h1>
+
+    <!-- Container para mensagens de alerta -->
+    <div class="alert-container" id="alertContainer">
+        <div th:if="${mensagem}" class="alert alert-success alert-dismissible fade show" role="alert">
+            <span th:text="${mensagem}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        <div th:if="${erro}" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <span th:text="${erro}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+
+    <!-- Peso Atual -->
+    <div class="card">
+        <div class="card-header">
+            Peso Atual
+        </div>
+        <div class="card-body">
+            <h5 class="card-title">Peso: <span th:text="${pesoAtual} + ' kg'">85.0 kg</span></h5>
+            <p class="card-text">Última atualização: 27/05/2025 14:11</p> <!-- TODO: Tornar dinâmico -->
+        </div>
+    </div>
+
+    <!-- Treinos de Hoje -->
+    <div class="card">
+        <div class="card-header">
+            Treinos de Hoje
+        </div>
+        <div class="card-body">
+            <div th:if="${#lists.isEmpty(treinos)}">
+                <p>Nenhum treino registrado para hoje.</p>
+            </div>
+            <div th:unless="${#lists.isEmpty(treinos)}">
+                <ul class="list-group">
+                    <li class="list-group-item" th:each="treino : ${treinos}">
+                        <strong th:text="${treino.descricao}">Caminhada Leve</strong> às
+                        <span th:text="${#temporals.format(treino.data, 'HH:mm')}">12:45</span>
+                    </li>
+                </ul>
+            </div>
+            <a href="/treino" class="btn btn-success btn-custom">
+                <i class="bi bi-bicycle"></i> Adicionar Treino
+            </a>
+        </div>
+    </div>
+
+    <!-- Refeições de Hoje -->
+    <div class="card">
+        <div class="card-header">
+            Refeições de Hoje
+        </div>
+        <div class="card-body">
+            <div th:if="${#lists.isEmpty(refeicoes)}">
+                <p>Nenhuma refeição registrada para hoje.</p>
+            </div>
+            <div th:unless="${#lists.isEmpty(refeicoes)}">
+                <ul class="list-group">
+                    <li class="list-group-item" th:each="refeicao : ${refeicoes}">
+                        <strong th:text="${refeicao.descricao}">Almoço: Salada com Frango</strong> às
+                        <span th:text="${#temporals.format(refeicao.data, 'HH:mm')}">12:30</span>
+                    </li>
+                </ul>
+            </div>
+            <a href="/alimentacao" class="btn btn-warning btn-custom">
+                <i class="bi bi-egg-fried"></i> Adicionar Refeição
+            </a>
+        </div>
+    </div>
+
+    <!-- Link para o Calendário -->
+    <div class="text-center">
+        <a href="/calendario" class="btn btn-primary btn-custom">
+            <i class="bi bi-calendar"></i> Ver Calendário
+        </a>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

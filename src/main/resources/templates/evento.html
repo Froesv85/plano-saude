@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Adicionar Evento</title>
+</head>
+<body>
+    <h1>Adicionar Evento</h1>
+    <div th:if="${erro}" th:text="${erro}" style="color: red;"></div>
+    <form th:action="@{/evento}" th:object="${evento}" method="post">
+        <label for="title">Título:</label>
+        <input type="text" id="title" th:field="*{title}" />
+        <span th:if="${#fields.hasErrors('title')}" th:errors="*{title}" style="color: red;"></span><br>
+
+        <label for="start">Início:</label>
+        <input type="datetime-local" id="start" th:field="*{start}" />
+        <span th:if="${#fields.hasErrors('start')}" th:errors="*{start}" style="color: red;"></span><br>
+
+        <label for="end">Fim:</label>
+        <input type="datetime-local" id="end" th:field="*{end}" /><br>
+
+        <label for="description">Descrição:</label>
+        <textarea id="description" th:field="*{description}"></textarea><br>
+
+        <button type="submit">Salvar</button>
+    </form>
+    <a href="/calendario">Voltar</a>
+</body>
+</html>

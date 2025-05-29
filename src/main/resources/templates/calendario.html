@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Calendário de Agendamentos</title>
+    <!-- FullCalendar CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 40px;
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+        }
+        #calendar {
+            max-width: 1100px;
+            margin: 20px auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .alert-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 400px;
+        }
+        .action-buttons {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .action-buttons .btn {
+            margin: 0 10px;
+            transition: transform 0.2s;
+        }
+        .action-buttons .btn:hover {
+            transform: scale(1.05);
+        }
+        .filter-section {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .filter-section label {
+            margin-right: 10px;
+        }
+        .fc-event {
+            cursor: pointer;
+            border-radius: 5px;
+            padding: 2px 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Calendário de Agendamentos - Saúde Perfeita</h1>
+
+    <!-- Seção de Filtros -->
+    <div class="filter-section">
+        <label>Filtrar:</label>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="showEvents" checked>
+            <label class="form-check-label" for="showEvents">Eventos</label>
+        </div>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="showTreinos" checked>
+            <label class="form-check-label" for="showTreinos">Treinos</label>
+        </div>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="showRefeicoes" checked>
+            <label class="form-check-label" for="showRefeicoes">Refeições</label>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="calendar.refetchEvents()">
+            <i class="bi bi-arrow-clockwise"></i> Atualizar
+        </button>
+    </div>
+
+    <!-- Botões para adicionar evento, treino e refeição -->
+    <div class="action-buttons">
+        <button class="btn btn-primary" onclick="openEventModal()">
+            <i class="bi bi-calendar-plus"></i> Adicionar Evento
+        </button>
+        <button class="btn btn-success" onclick="openTreinoModal()">
+            <i class="bi bi-bicycle"></i> Adicionar Treino
+        </button>
+        <button class="btn btn-warning" onclick="openRefeicaoModal()">
+            <i class="bi bi-egg-fried"></i> Adicionar Refeição
+        </button>
+    </div>
+
+    <div id="calendar"></div>
+
+    <!-- Container para mensagens de alerta -->
+    <div class="alert-container" id="alertContainer"></div>
+
+    <!-- Modal para Adicionar/Editar Evento -->
+    <div class="modal fade" id="eventModal" tabindex="-1" aria-labelledby="eventModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="eventModalLabel">Adicionar/Editar Evento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="eventForm">
+                        <input type="hidden" id="eventId">
+                        <div class="mb-3">
+                            <label for="eventTitle" class="form-label">Título</label>
+                            <input type="text" class="form-control" id="eventTitle" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="eventStart" class="form-label">Data e Hora de Início</label>
+                            <input type="datetime-local" class="form-control" id="eventStart" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="eventEnd" class="form-label">Data e Hora de Término</label>
+                            <input type="datetime-local" class="form-control" id="eventEnd">
+                        </div>
+                        <div class="mb-3">
+                            <label for="eventDescription" class="form-label">Descrição</label>
+                            <textarea class="form-control" id="eventDescription" rows="4"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" id="deleteEvent" style="display: none;">Excluir</button>
+                    <button type="button" class="btn btn-secondary" id="clearEventForm">Limpar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-primary" id="saveEvent">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Adicionar Treino -->
+    <div class="modal fade" id="treinoModal" tabindex="-1" aria-labelledby="treinoModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="treinoModalLabel">Adicionar Treino</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="treinoForm">
+                        <div class="mb-3">
+                            <label for="treinoDescricao" class="form-label">Descrição</label>
+                            <input type="text" class="form-control" id="treinoDescricao" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="treinoData" class="form-label">Data e Hora</label>
+                            <input type="datetime-local" class="form-control" id="treinoData" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="clearTreinoForm">Limpar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-success" id="saveTreino">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Adicionar Refeição -->
+    <div class="modal fade" id="refeicaoModal" tabindex="-1" aria-labelledby="refeicaoModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="refeicaoModalLabel">Adicionar Refeição</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="refeicaoForm">
+                        <div class="mb-3">
+                            <label for="refeicaoDescricao" class="form-label">Descrição</label>
+                            <input type="text" class="form-control" id="refeicaoDescricao" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="refeicaoData" class="form-label">Data e Hora</label>
+                            <input type="datetime-local" class="form-control" id="refeicaoData" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="clearRefeicaoForm">Limpar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-warning" id="saveRefeicao">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FullCalendar JS -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery (para chamadas AJAX) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'pt-br',
+                initialDate: '2025-05-27',
+                timeZone: 'America/Sao_Paulo',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                editable: true,
+                selectable: true,
+                events: function(fetchInfo, successCallback, failureCallback) {
+                    var eventList = [];
+                    var showEvents = document.getElementById('showEvents').checked;
+                    var showTreinos = document.getElementById('showTreinos').checked;
+                    var showRefeicoes = document.getElementById('showRefeicoes').checked;
+
+                    // Ajustar as datas para remover o offset do navegador
+                    var startStr = fetchInfo.start.toISOString().split('.')[0];
+                    var endStr = fetchInfo.end.toISOString().split('.')[0];
+
+                    console.log('Buscando dados entre', startStr, 'e', endStr); // Log para depuração
+
+                    // Função auxiliar para continuar mesmo se uma requisição falhar
+                    function fetchNext() {
+                        if (eventList.length > 0 || (!showEvents && !showTreinos && !showRefeicoes)) {
+                            successCallback(eventList);
+                        } else {
+                            failureCallback();
+                        }
+                    }
+
+                    // Buscar eventos
+                    if (showEvents) {
+                        $.ajax({
+                            url: '/api/eventos/por-data',
+                            data: {
+                                start: startStr,
+                                end: endStr
+                            },
+                            success: function(eventos) {
+                                console.log('Eventos recebidos:', eventos); // Log para depuração
+                                var eventItems = eventos.map(evento => ({
+                                    id: evento.id,
+                                    title: evento.title,
+                                    start: evento.start,
+                                    end: evento.end,
+                                    description: evento.description,
+                                    backgroundColor: '#3788d8',
+                                    borderColor: '#3788d8',
+                                    type: 'evento'
+                                }));
+                                eventList = eventList.concat(eventItems);
+
+                                // Buscar treinos
+                                if (showTreinos) {
+                                    $.ajax({
+                                        url: '/api/treinos/por-data',
+                                        data: {
+                                            start: startStr,
+                                            end: endStr
+                                        },
+                                        success: function(treinos) {
+                                            console.log('Treinos recebidos:', treinos); // Log para depuração
+                                            var treinoEvents = treinos.map(treino => ({
+                                                id: treino.id,
+                                                title: treino.descricao,
+                                                start: treino.data,
+                                                backgroundColor: '#28a745',
+                                                borderColor: '#28a745',
+                                                type: 'treino'
+                                            }));
+                                            eventList = eventList.concat(treinoEvents);
+
+                                            // Buscar refeições
+                                            if (showRefeicoes) {
+                                                $.ajax({
+                                                    url: '/api/refeicoes/por-data',
+                                                    data: {
+                                                        start: startStr,
+                                                        end: endStr
+                                                    },
+                                                    success: function(refeicoes) {
+                                                        console.log('Refeições recebidas:', refeicoes); // Log para depuração
+                                                        var refeicaoEvents = refeicoes.map(refeicao => ({
+                                                            id: refeicao.id,
+                                                            title: refeicao.descricao,
+                                                            start: refeicao.data,
+                                                            backgroundColor: '#ffc107',
+                                                            borderColor: '#ffc107',
+                                                            type: 'refeicao'
+                                                        }));
+                                                        eventList = eventList.concat(refeicaoEvents);
+                                                        successCallback(eventList);
+                                                    },
+                                                    error: function(xhr) {
+                                                        console.error('Erro ao buscar refeições:', xhr); // Log detalhado
+                                                        showAlert('Erro ao carregar refeições: ' + (xhr.responseText || 'Falha na requisição'), 'danger');
+                                                        fetchNext();
+                                                    }
+                                                });
+                                            } else {
+                                                fetchNext();
+                                            }
+                                        },
+                                        error: function(xhr) {
+                                            console.error('Erro ao buscar treinos:', xhr); // Log detalhado
+                                            showAlert('Erro ao carregar treinos: ' + (xhr.responseText || 'Falha na requisição'), 'danger');
+                                            fetchNext();
+                                        }
+                                    });
+                                } else if (showRefeicoes) {
+                                    $.ajax({
+                                        url: '/api/refeicoes/por-data',
+                                        data: {
+                                            start: startStr,
+                                            end: endStr
+                                        },
+                                        success: function(refeicoes) {
+                                            console.log('Refeições recebidas:', refeicoes); // Log para depuração
+                                            var refeicaoEvents = refeicoes.map(refeicao => ({
+                                                id: refeicao.id,
+                                                title: refeicao.descricao,
+                                                start: refeicao.data,
+                                                backgroundColor: '#ffc107',
+                                                borderColor: '#ffc107',
+                                                type: 'refeicao'
+                                            }));
+                                            eventList = eventList.concat(refeicaoEvents);
+                                            successCallback(eventList);
+                                        },
+                                        error: function(xhr) {
+                                            console.error('Erro ao buscar refeições:', xhr); // Log detalhado
+                                            showAlert('Erro ao carregar refeições: ' + (xhr.responseText || 'Falha na requisição'), 'danger');
+                                            fetchNext();
+                                        }
+                                    });
+                                } else {
+                                    fetchNext();
+                                }
+                            },
+                            error: function(xhr) {
+                                console.error('Erro ao buscar eventos:', xhr); // Log detalhado
+                                showAlert('Erro ao carregar eventos: ' + (xhr.responseText || 'Falha na requisição'), 'danger');
+                                if (showTreinos || showRefeicoes) {
+                                    fetchNext();
+                                } else {
+                                    failureCallback();
+                                }
+                            }
+                        });
+                    } else if (showTreinos) {
+                        $.ajax({
+                            url: '/api/treinos/por-data',
+                            data: {
+                                start: startStr,
+                                end: endStr
+                            },
+                            success: function(treinos) {
+                                console.log('Treinos recebidos:', treinos); // Log para depuração
+                                var treinoEvents = treinos.map(treino => ({
+                                    id: treino.id,
+                                    title: treino.descricao,
+                                    start: treino.data,
+                                    backgroundColor: '#28a745',
+                                    borderColor: '#28a745',
+                                    type: 'treino'
+                                }));
+                                eventList = eventList.concat(treinoEvents);
+
+                                if (showRefeicoes) {
+                                    $.ajax({
+                                        url: '/api/refeicoes/por-data',
+                                        data: {
+                                            start: startStr,
+                                            end: endStr
+                                        },
+                                        success: function(refeicoes) {
+                                            console.log('Refeições recebidas:', refeicoes); // Log para depuração
+                                            var refeicaoEvents = refeicoes.map(refeicao => ({
+                                                id: refeicao.id,
+                                                title: refeicao.descricao,
+                                                start: refeicao.data,
+                                                backgroundColor: '#ffc107',
+                                                borderColor: '#ffc107',
+                                                type: 'refeicao'
+                                            }));
+                                            eventList = eventList.concat(refeicaoEvents);
+                                            successCallback(eventList);
+                                        },
+                                        error: function(xhr) {
+                                            console.error('Erro ao buscar refeições:', xhr); // Log detalhado
+                                            showAlert('Erro ao carregar refeições: ' + (xhr.responseText || 'Falha na requisição'), 'danger');
+                                            fetchNext();
+                                        }
+                                    });
+                                } else {
+                                    successCallback(eventList);
+                                }
+                            },
+                            error: function(xhr) {
+                                console.error('Erro ao buscar treinos:', xhr); // Log detalhado
+                                showAlert('Erro ao carregar treinos: ' + (xhr.responseText || 'Falha na requisição'), 'danger');
+                                if (showRefeicoes) {
+                                    fetchNext();
+                                } else {
+                                    failureCallback();
+                                }
+                            }
+                        });
+                    } else if (showRefeicoes) {
+                        $.ajax({
+                            url: '/api/refeicoes/por-data',
+                            data: {
+                                start: startStr,
+                                end: endStr
+                            },
+                            success: function(refeicoes) {
+                                console.log('Refeições recebidas:', refeicoes); // Log para depuração
+                                var refeicaoEvents = refeicoes.map(refeicao => ({
+                                    id: refeicao.id,
+                                    title: refeicao.descricao,
+                                    start: refeicao.data,
+                                    backgroundColor: '#ffc107',
+                                    borderColor: '#ffc107',
+                                    type: 'refeicao'
+                                }));
+                                eventList = eventList.concat(refeicaoEvents);
+                                successCallback(eventList);
+                            },
+                            error: function(xhr) {
+                                console.error('Erro ao buscar refeições:', xhr); // Log detalhado
+                                showAlert('Erro ao carregar refeições: ' + (xhr.responseText || 'Falha na requisição'), 'danger');
+                                failureCallback();
+                            }
+                        });
+                    } else {
+                        successCallback(eventList);
+                    }
+                },
+                dateClick: function(info) {
+                    var dateStr = new Date(info.dateStr).toLocaleString('sv', { timeZone: 'America/Sao_Paulo' }).slice(0, 16).replace(' ', 'T');
+                    openEventModal(dateStr);
+                },
+                eventClick: function(info) {
+                    if (info.event.extendedProps.type === 'evento') {
+                        resetEventModal();
+                        document.getElementById('eventId').value = info.event.id;
+                        document.getElementById('eventTitle').value = info.event.title;
+                        document.getElementById('eventStart').value = new Date(info.event.start).toLocaleString('sv', { timeZone: 'America/Sao_Paulo' }).slice(0, 16).replace(' ', 'T');
+                        if (info.event.end) {
+                            document.getElementById('eventEnd').value = new Date(info.event.end).toLocaleString('sv', { timeZone: 'America/Sao_Paulo' }).slice(0, 16).replace(' ', 'T');
+                        }
+                        document.getElementById('eventDescription').value = info.event.extendedProps.description || '';
+                        document.getElementById('eventModalLabel').textContent = 'Editar Evento';
+                        document.getElementById('deleteEvent').style.display = 'inline-block';
+                        new bootstrap.Modal(document.getElementById('eventModal')).show();
+                    } else {
+                        showAlert('Edição disponível apenas para eventos. Crie um novo evento para treinos ou refeições.', 'info');
+                    }
+                },
+                eventDidMount: function(info) {
+                    if (info.event.extendedProps.description) {
+                        info.el.title = info.event.extendedProps.description;
+                    }
+                }
+            });
+            calendar.render();
+
+            window.openEventModal = function(defaultDate) {
+                resetEventModal();
+                if (defaultDate) {
+                    document.getElementById('eventStart').value = defaultDate;
+                }
+                document.getElementById('eventModalLabel').textContent = 'Adicionar Evento';
+                document.getElementById('deleteEvent').style.display = 'none';
+                new bootstrap.Modal(document.getElementById('eventModal')).show();
+            };
+
+            window.openTreinoModal = function() {
+                resetTreinoModal();
+                new bootstrap.Modal(document.getElementById('treinoModal')).show();
+            };
+
+            window.openRefeicaoModal = function() {
+                resetRefeicaoModal();
+                new bootstrap.Modal(document.getElementById('refeicaoModal')).show();
+            };
+
+            document.getElementById('saveEvent').addEventListener('click', function() {
+                var eventData = {
+                    id: document.getElementById('eventId').value,
+                    title: document.getElementById('eventTitle').value,
+                    start: document.getElementById('eventStart').value,
+                    end: document.getElementById('eventEnd').value,
+                    description: document.getElementById('eventDescription').value
+                };
+
+                if (!eventData.title) {
+                    showAlert('O título do evento é obrigatório.', 'warning');
+                    return;
+                }
+                if (eventData.end && new Date(eventData.end) <= new Date(eventData.start)) {
+                    showAlert('A data de término deve ser após a data de início.', 'warning');
+                    return;
+                }
+
+                $.ajax({
+                    url: eventData.id ? '/api/eventos/' + eventData.id : '/api/eventos',
+                    type: eventData.id ? 'PUT' : 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(eventData),
+                    success: function(response) {
+                        showAlert(eventData.id ? 'Evento atualizado com sucesso!' : 'Evento criado com sucesso!', 'success');
+                        calendar.refetchEvents();
+                        bootstrap.Modal.getInstance(document.getElementById('eventModal')).hide();
+                    },
+                    error: function(xhr) {
+                        showAlert('Erro ao salvar evento: ' + (xhr.responseText || 'Falha na requisição'), 'danger');
+                    }
+                });
+            });
+
+            document.getElementById('deleteEvent').addEventListener('click', function() {
+                var eventId = document.getElementById('eventId').value;
+                if (!eventId) return;
+
+                if (confirm('Tem certeza que deseja excluir este evento?')) {
+                    $.ajax({
+                        url: '/api/eventos/' + eventId,
+                        type: 'DELETE',
+                        success: function() {
+                            showAlert('Evento excluído com sucesso!', 'success');
+                            calendar.refetchEvents();
+                            bootstrap.Modal.getInstance(document.getElementById('eventModal')).hide();
+                        },
+                        error: function(xhr) {
+                            showAlert('Erro ao excluir evento: ' + (xhr.responseText || 'Falha na requisição'), 'danger');
+                        }
+                    });
+                }
+            });
+
+            document.getElementById('saveTreino').addEventListener('click', function() {
+                var treinoData = {
+                    descricao: document.getElementById('treinoDescricao').value,
+                    data: document.getElementById('treinoData').value
+                };
+
+                if (!treinoData.descricao) {
+                    showAlert('A descrição do treino é obrigatória.', 'warning');
+                    return;
+                }
+                if (!treinoData.data) {
+                    showAlert('A data do treino é obrigatória.', 'warning');
+                    return;
+                }
+
+                $.ajax({
+                    url: '/api/treinos',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(treinoData),
+                    success: function(response) {
+                        showAlert('Treino criado com sucesso!', 'success');
+                        calendar.refetchEvents();
+                        bootstrap.Modal.getInstance(document.getElementById('treinoModal')).hide();
+                    },
+                    error: function(xhr) {
+                        showAlert('Erro ao salvar treino: ' + (xhr.responseText || 'Falha na requisição'), 'danger');
+                    }
+                });
+            });
+
+            document.getElementById('saveRefeicao').addEventListener('click', function() {
+                var refeicaoData = {
+                    descricao: document.getElementById('refeicaoDescricao').value,
+                    data: document.getElementById('refeicaoData').value
+                };
+
+                if (!refeicaoData.descricao) {
+                    showAlert('A descrição da refeição é obrigatória.', 'warning');
+                    return;
+                }
+                if (!refeicaoData.data) {
+                    showAlert('A data da refeição é obrigatória.', 'warning');
+                    return;
+                }
+
+                $.ajax({
+                    url: '/api/refeicoes',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(refeicaoData),
+                    success: function(response) {
+                        showAlert('Refeição criada com sucesso!', 'success');
+                        calendar.refetchEvents();
+                        bootstrap.Modal.getInstance(document.getElementById('refeicaoModal')).hide();
+                    },
+                    error: function(xhr) {
+                        showAlert('Erro ao salvar refeição: ' + (xhr.responseText || 'Falha na requisição'), 'danger');
+                    }
+                });
+            });
+
+            document.getElementById('clearEventForm').addEventListener('click', function() {
+                resetEventModal();
+                document.getElementById('eventModalLabel').textContent = 'Adicionar Evento';
+                document.getElementById('deleteEvent').style.display = 'none';
+            });
+
+            document.getElementById('clearTreinoForm').addEventListener('click', function() {
+                resetTreinoModal();
+            });
+
+            document.getElementById('clearRefeicaoForm').addEventListener('click', function() {
+                resetRefeicaoModal();
+            });
+
+            function resetEventModal() {
+                document.getElementById('eventForm').reset();
+                document.getElementById('eventId').value = '';
+            }
+
+            function resetTreinoModal() {
+                document.getElementById('treinoForm').reset();
+            }
+
+            function resetRefeicaoModal() {
+                document.getElementById('refeicaoForm').reset();
+            }
+
+            function showAlert(message, type) {
+                var alertDiv = document.createElement('div');
+                alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+                alertDiv.role = 'alert';
+                alertDiv.innerHTML = `
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                `;
+                document.getElementById('alertContainer').appendChild(alertDiv);
+                setTimeout(() => {
+                    alertDiv.remove();
+                }, 5000);
+            }
+
+            document.getElementById('showEvents').addEventListener('change', function() {
+                calendar.refetchEvents();
+            });
+            document.getElementById('showTreinos').addEventListener('change', function() {
+                calendar.refetchEvents();
+            });
+            document.getElementById('showRefeicoes').addEventListener('change', function() {
+                calendar.refetchEvents();
+            });
+
+            window.calendar = calendar;
+        });
+    </script>
+</body>
+</html>
