@@ -31,7 +31,7 @@ Criar uma aplicação web para gerenciar treinos, refeições e eventos (como co
 - Java 17  
 - Spring Boot 3.4.5  
 - Spring Data JPA  
-- H2 Database (desenvolvimento)  
+- MySql (Banco de Dados)  
 - Thymeleaf (MVC)  
 - Swagger (MVVM)  
 - Bootstrap  
@@ -54,17 +54,8 @@ Criar uma aplicação web para gerenciar treinos, refeições e eventos (como co
 2. Configure o ambiente:  
    - Verifique o Java: `java -version`  
    - Verifique o Maven: `mvn -version`  
-3. Configure o banco de dados (H2 por padrão):  
-   Edite `src/main/resources/application.properties` com o seguinte código:  
-   ```properties
-   spring.datasource.url=jdbc:h2:mem:testdb
-   spring.datasource.driverClassName=org.h2.Driver
-   spring.datasource.username=sa
-   spring.datasource.password=
-   spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
-   spring.jpa.hibernate.ddl-auto=update
-   ```
-4. Para usar MySQL, adicione ao `pom.xml`:  
+  
+3. Para usar MySQL, adicione ao `pom.xml`:  
    ```xml
    <dependency>
        <groupId>mysql</groupId>
@@ -80,7 +71,7 @@ Criar uma aplicação web para gerenciar treinos, refeições e eventos (como co
    spring.jpa.database-platform=org.hibernate.dialect.MySQLDialect
    spring.jpa.hibernate.ddl-auto=update
    ```
-5. Configure o Swagger (MVVM):  
+4. Configure o Swagger (MVVM):  
    Adicione ao `pom.xml`:  
    ```xml
    <dependency>
@@ -89,12 +80,12 @@ Criar uma aplicação web para gerenciar treinos, refeições e eventos (como co
        <version>2.6.0</version>
    </dependency>
    ```
-6. Execute a aplicação:  
+5. Execute a aplicação:  
    ```
    mvn clean install
    mvn spring-boot:run
    ```
-7. Acesse:  
+6. Acesse:  
    - MVC: `http://localhost:8080`  
    - Swagger (MVVM): `http://localhost:8080/swagger-ui.html`
 
@@ -146,5 +137,5 @@ Distribuído sob a [MIT License](LICENSE).
 ## Contato
 
 Desenvolvido por **Santhiago Chapiewski** e **Vinicius Froes**.  
-Última atualização: **29 de maio de 2025, 17:12 (BRT)**.  
+
 Dúvidas ou sugestões? Abra uma issue no GitHub!
