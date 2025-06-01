@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plano de Dieta - PlanoSaude</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/style.css" th:href="@{/css/style.css}" rel="stylesheet">
+    <style>
+        .navbar-custom { margin-bottom: 20px; }
+        .alert-container { position: fixed; top: 20px; right: 20px; z-index: 1000; max-width: 400px; }
+    </style>
+</head>
+<body>
+    <!-- Menu de Navegação -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light navbar-custom">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">PlanoSaude</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/dashboard}">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/calendario}">Calendário</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/plano-treino}">Plano de Treino</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" th:href="@{/plano-dieta}">Plano de Dieta</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/eventos}">Resumo de Eventos</a>
+                    </li>
+                </ul>
+                <a th:href="@{/logout}" class="btn btn-secondary">Sair</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h1 class="text-center">Plano de Dieta</h1>
+        <p class="text-center text-muted">Gerencie seus planos de dieta personalizados.</p>
+
+        <!-- Botão para Adicionar Novo Plano -->
+        <div class="text-center mb-4">
+            <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#dietaModal">Adicionar Novo Plano</button>
+        </div>
+
+        <!-- Lista de Planos de Dieta -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">Seus Planos de Dieta</div>
+                    <div class="card-body">
+                        <p th:if="${planos.isEmpty()}">Nenhum plano de dieta registrado.</p>
+                        <table th:unless="${planos.isEmpty()}" class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Descrição</th>
+                                    <th>Data de Início</th>
+                                    <th>Data de Término</th>
+                                    <th>Metas Semanais</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="plano : ${planos}">
+                                    <td th:text="${plano.descricao}"></td>
+                                    <td th:text="${#temporals.format(plano.dataInicio, 'dd/MM/yyyy')}"></td>
+                                    <td th:text="${plano.dataFim != null ? #temporals.format(plano.dataFim, 'dd/MM/yyyy') : 'Indefinido'}"></td>
+                                    <td th:text="${plano.metaSemanal}"></td>
+                                    <td th:text="${plano.ativo ? 'Ativo' : 'Inativo'}"></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary" th:onclick="'editPlano(' + ${plano.id} + ')'">Editar</button>
+                                        <button class="btn btn-sm btn-danger" th:onclick="'deletePlano(' + ${plano.id} + ')'">Excluir</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Container para Alertas -->
+        <div class="alert-container" id="alertContainer"></div>
+    </div>
+
+    <!-- Modal para Adicionar/Editar Plano de Dieta -->
+    <div class="modal fade" id="dietaModal" tabindex="-1" aria-labelledby="dietaModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="dietaModalLabel">Adicionar Plano de Dieta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="dietaForm" th:action="@{/plano-dieta/salvar}" method="post">
+                        <input type="hidden" id="planoId" name="id">
+                        <div class="mb-3">
+                            <label for="planoDescricao" class="form-label">Descrição</label>
+                            <textarea class="form-control" id="planoDescricao" name="descricao" rows="4" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="planoDataInicio" class="form-label">Data de Início</label>
+                            <input type="date" class="form-control" id="planoDataInicio" name="dataInicio" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="planoDataFim" class="form-label">Data de Término (opcional)</label>
+                            <input type="date" class="form-control" id="planoDataFim" name="dataFim">
+                        </div>
+                        <div class="mb-3">
+                            <label for="planoMetaSemanal" class="form-label">Metas Semanais</label>
+                            <textarea class="form-control" id="planoMetaSemanal" name="metaSemanal" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="planoAtivo" class="form-label">Ativo</label>
+                            <input type="checkbox" id="planoAtivo" name="ativo" checked>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="clearDietaForm">Limpar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="submit" form="dietaForm" class="btn btn-warning">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.role = 'alert';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            document.getElementById('alertContainer').appendChild(alertDiv);
+            setTimeout(() => alertDiv.remove(), 5000);
+        }
+
+        function editPlano(id) {
+            $.ajax({
+                url: `/api/planos/${id}`,
+                type: 'GET',
+                success: function(plano) {
+                    document.getElementById('planoId').value = plano.id;
+                    document.getElementById('planoDescricao').value = plano.descricao;
+                    document.getElementById('planoDataInicio').value = plano.dataInicio.split('T')[0];
+                    document.getElementById('planoDataFim').value = plano.dataFim ? plano.dataFim.split('T')[0] : '';
+                    document.getElementById('planoMetaSemanal').value = plano.metaSemanal || '';
+                    document.getElementById('planoAtivo').checked = plano.ativo;
+                    document.getElementById('dietaModalLabel').textContent = 'Editar Plano de Dieta';
+                    new bootstrap.Modal(document.getElementById('dietaModal')).show();
+                },
+                error: function(xhr) {
+                    showAlert('Erro ao carregar plano: ' + (xhr.responseText || 'Falha na requisição'), 'danger');
+                }
+            });
+        }
+
+        function deletePlano(id) {
+            if (confirm('Tem certeza que deseja excluir este plano?')) {
+                $.ajax({
+                    url: `/api/planos/${id}`,
+                    type: 'DELETE',
+                    success: function() {
+                        showAlert('Plano excluído com sucesso!', 'success');
+                        window.location.reload();
+                    },
+                    error: function(xhr) {
+                        showAlert('Erro ao excluir plano: ' + (xhr.responseText || 'Falha na requisição'), 'danger');
+                    }
+                });
+            }
+        }
+
+        document.getElementById('clearDietaForm').addEventListener('click', function() {
+            document.getElementById('dietaForm').reset();
+            document.getElementById('planoId').value = '';
+            document.getElementById('dietaModalLabel').textContent = 'Adicionar Plano de Dieta';
+        });
+    </script>
+</body>
+</html>

@@ -1,7 +1,9 @@
 package com.froes.planosaude.controller;
 
 import com.froes.planosaude.model.Treino;
+import com.froes.planosaude.model.Usuario;
 import com.froes.planosaude.service.PlanoService;
+import com.froes.planosaude.service.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -11,11 +13,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/treinos")
@@ -24,69 +29,200 @@ import java.util.List;
 public class TreinoController {
 
     private static final Logger logger = LoggerFactory.getLogger(TreinoController.class);
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     @Autowired
     private PlanoService planoService;
 
-    @GetMapping
-    @Operation(summary = "Listar todos os treinos", description = "Retorna uma lista com todos os treinos cadastrados")
+    @Autowired
+    private UsuarioService usuarioService;
+
+    @Operation(summary = "Listar todos os treinos do usuário", description = "Retorna uma lista com todos os treinos do usuário autenticado")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de treinos retornada com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Erro ao buscar treinos")
-    })
-    public ResponseEntity<List<Treino>> getTreinos() {
-        try {
-            List<Treino> treinos = planoService.getTreinos();
-            logger.info("Encontrados {} treinos", treinos.size());
-            return ResponseEntity.ok(treinos);
-        } catch (Exception e) {
-            logger.error("Erro ao buscar treinos: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(null);
-        }
-    }
-
-    @GetMapping("/por-data")
-    @Operation(summary = "Buscar treinos por intervalo de datas", description = "Retorna treinos entre as datas de início e fim especificadas")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Treinos encontrados com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Erro ao buscar treinos por data")
-    })
-    public ResponseEntity<List<Treino>> getTreinosPorData(
-            @Parameter(description = "Data de início no formato yyyy-MM-dd'T'HH:mm:ss", example = "2025-05-27T00:00:00")
-            @RequestParam("start") String start,
-            @Parameter(description = "Data de fim no formato yyyy-MM-dd'T'HH:mm:ss", example = "2025-05-28T00:00:00")
-            @RequestParam("end") String end) {
-        try {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-            LocalDateTime startDate = LocalDateTime.parse(start, formatter);
-            LocalDateTime endDate = LocalDateTime.parse(end, formatter);
-            List<Treino> treinos = planoService.getTreinosPorData(startDate, endDate);
-            logger.info("Treinos encontrados entre {} e {}: {}", startDate, endDate, treinos.size());
-            return ResponseEntity.ok(treinos);
-        } catch (Exception e) {
-            logger.error("Erro ao buscar treinos por data: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(null);
-        }
-    }
-
-    @PostMapping
-    @Operation(summary = "Adicionar um novo treino", description = "Cria um novo treino no sistema")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Treino adicionado com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Erro ao adicionar treino"),
+            @ApiResponse(responseCode = "400", description = "Erro ao buscar treinos"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado"),
             @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
     })
-    public ResponseEntity<Treino> adicionarTreino(@RequestBody Treino treino) {
+    @GetMapping
+    public ResponseEntity<?> getTreinos(Authentication authentication) {
         try {
-            Treino salvo = planoService.adicionarTreino(treino);
-            logger.info("Treino adicionado com sucesso: {}", salvo);
-            return ResponseEntity.ok(salvo);
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(401).body(Map.of("error", "Usuário não autenticado"));
+            }
+            String email = authentication.getName();
+            List<Treino> treinos = planoService.getTreinos(email);
+            logger.info("Encontrados {} treinos para usuário: {}", treinos.size(), email);
+            return ResponseEntity.ok(treinos);
+        } catch (IllegalArgumentException e) {
+            logger.error("Erro ao buscar treinos: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Erro inesperado ao buscar treinos: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("error", "Erro interno do servidor"));
+        }
+    }
+
+    @Operation(summary = "Buscar treinos por intervalo de datas", description = "Retorna treinos do usuário autenticado entre as datas de início e fim especificadas")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Treinos encontrados com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Formato de data inválido ou erro de validação"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado"),
+            @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+    })
+    @GetMapping("/por-data")
+    public ResponseEntity<?> getTreinosPorData(
+            Authentication authentication,
+            @Parameter(description = "Data de início (ISO 8601, ex.: 2025-06-01T00:00:00)", required = true)
+            @RequestParam String start,
+            @Parameter(description = "Data de fim (ISO 8601, ex.: 2025-06-02T00:00:00)", required = true)
+            @RequestParam String end) {
+        try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(401).body(Map.of("error", "Usuário não autenticado"));
+            }
+            String email = authentication.getName();
+            LocalDateTime startDate = LocalDateTime.parse(start, formatter);
+            LocalDateTime endDate = LocalDateTime.parse(end, formatter);
+            if (startDate.isAfter(endDate)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Data de início deve ser anterior à data de fim"));
+            }
+            List<Treino> treinos = planoService.getTreinosPorData(email, startDate, endDate);
+            logger.info("Encontrados {} treinos para usuário {} entre {} e {}", treinos.size(), email, startDate, endDate);
+            return ResponseEntity.ok(treinos);
+        } catch (DateTimeParseException e) {
+            logger.error("Erro ao parsear datas: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", "Formato de data inválido"));
+        } catch (IllegalArgumentException e) {
+            logger.error("Erro ao buscar treinos: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Erro inesperado ao buscar treinos: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("error", "Erro interno do servidor"));
+        }
+    }
+
+    @Operation(summary = "Adicionar um novo treino", description = "Cria um novo treino para o usuário autenticado")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Treino adicionado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Dados inválidos ou formato de data incorreto"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado"),
+            @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+    })
+    @PostMapping
+    public ResponseEntity<?> adicionarTreino(
+            @Parameter(description = "Dados do treino (descricao, data)", required = true)
+            @RequestBody Map<String, Object> treinoData,
+            Authentication authentication) {
+        try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(401).body(Map.of("error", "Usuário não autenticado"));
+            }
+            String email = authentication.getName();
+            Usuario usuario = usuarioService.findByEmail(email)
+                    .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
+
+            String descricao = (String) treinoData.get("descricao");
+            if (descricao == null || descricao.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Descrição é obrigatória"));
+            }
+            LocalDateTime data = LocalDateTime.parse((String) treinoData.get("data"), formatter);
+            if (data.isBefore(LocalDateTime.now())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Data do treino não pode ser no passado"));
+            }
+
+            Treino treino = new Treino();
+            treino.setUsuario(usuario);
+            treino.setDescricao(descricao);
+            treino.setData(data);
+            planoService.salvarTreino(treino);
+            logger.info("Treino adicionado para usuário {}: {}", email, descricao);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (DateTimeParseException e) {
+            logger.error("Erro ao parsear data: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", "Formato de data inválido"));
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao adicionar treino: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(null);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             logger.error("Erro inesperado ao adicionar treino: {}", e.getMessage(), e);
-            return ResponseEntity.status(500).body(null);
+            return ResponseEntity.status(500).body(Map.of("error", "Erro interno do servidor"));
+        }
+    }
+
+    @Operation(summary = "Editar um treino existente", description = "Atualiza um treino do usuário autenticado com base no ID")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Treino editado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Dados inválidos"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado"),
+            @ApiResponse(responseCode = "403", description = "Treino não pertence ao usuário"),
+            @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+    })
+    @PutMapping("/{id}")
+    public ResponseEntity<?> editarTreino(
+            @Parameter(description = "ID do treino a ser editado", required = true)
+            @PathVariable Long id,
+            @Parameter(description = "Dados do treino", required = true)
+            @RequestBody Treino treino,
+            Authentication authentication) {
+        try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(401).body(Map.of("error", "Usuário não autenticado"));
+            }
+            String email = authentication.getName();
+            Usuario usuario = usuarioService.findByEmail(email)
+                    .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
+            Treino existente = planoService.buscarTreinoPorId(id);
+            if (!existente.getUsuario().getId().equals(usuario.getId())) {
+                return ResponseEntity.status(403).body(Map.of("error", "Treino não pertence ao usuário"));
+            }
+            treino.setId(id);
+            treino.setUsuario(usuario);
+            Treino salvo = planoService.salvarTreino(treino);
+            logger.info("Treino editado para usuário {}: ID {}", email, id);
+            return ResponseEntity.ok(salvo);
+        } catch (IllegalArgumentException e) {
+            logger.error("Erro ao editar treino: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Erro inesperado ao editar treino: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("error", "Erro interno do servidor"));
+        }
+    }
+
+    @Operation(summary = "Remover um treino", description = "Remove um treino do usuário autenticado com base no ID")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Treino removido com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Erro ao remover treino"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado"),
+            @ApiResponse(responseCode = "403", description = "Treino não pertence ao usuário"),
+            @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+    })
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> removerTreino(
+            @Parameter(description = "ID do treino a ser removido", required = true)
+            @PathVariable Long id,
+            Authentication authentication) {
+        try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(401).body(Map.of("error", "Usuário não autenticado"));
+            }
+            String email = authentication.getName();
+            Usuario usuario = usuarioService.findByEmail(email)
+                    .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
+            Treino treino = planoService.buscarTreinoPorId(id);
+            if (!treino.getUsuario().getId().equals(usuario.getId())) {
+                return ResponseEntity.status(403).body(Map.of("error", "Treino não pertence ao usuário"));
+            }
+            planoService.removerTreino(id, email);
+            logger.info("Treino removido para usuário {}: ID {}", email, id);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            logger.error("Erro ao remover treino: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Erro inesperado ao remover treino: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("error", "Erro interno do servidor"));
         }
     }
 }

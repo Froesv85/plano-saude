@@ -1,10 +1,18 @@
 package com.froes.planosaude.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "usuario_peso")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class UsuarioPeso {
 
     @Id
@@ -12,52 +20,24 @@ public class UsuarioPeso {
     private Long id;
 
     @Column(nullable = false)
+    @NotNull(message = "O peso é obrigatório")
     private Double peso;
 
     @Column(nullable = false)
+    @NotNull(message = "A data de registro é obrigatória")
     private LocalDateTime dataRegistro;
 
-    // Construtores
-    public UsuarioPeso() {
-        this.dataRegistro = LocalDateTime.now();
-    }
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = false)
+    @NotNull(message = "O usuário é obrigatório")
+    private Usuario usuario;
 
     public UsuarioPeso(Double peso) {
         this.peso = peso;
         this.dataRegistro = LocalDateTime.now();
     }
 
-    // Getters e Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Double getPeso() {
-        return peso;
-    }
-
-    public void setPeso(Double peso) {
-        this.peso = peso;
-    }
-
-    public LocalDateTime getDataRegistro() {
-        return dataRegistro;
-    }
-
-    public void setDataRegistro(LocalDateTime dataRegistro) {
-        this.dataRegistro = dataRegistro;
-    }
-
-    @Override
-    public String toString() {
-        return "UsuarioPeso{" +
-                "id=" + id +
-                ", peso=" + peso +
-                ", dataRegistro=" + dataRegistro +
-                '}';
+    public void setUsuario(Usuario usuario) {
+        this.usuario = usuario;
     }
 }

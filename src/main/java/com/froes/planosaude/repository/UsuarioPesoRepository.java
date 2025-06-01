@@ -1,11 +1,15 @@
 package com.froes.planosaude.repository;
 
+import com.froes.planosaude.model.Usuario;
 import com.froes.planosaude.model.UsuarioPeso;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
+
+import java.util.List;
 
 public interface UsuarioPesoRepository extends JpaRepository<UsuarioPeso, Long> {
+    List<UsuarioPeso> findByUsuarioOrderByDataRegistroDesc(Usuario usuario);
 
-    @Query("SELECT up FROM UsuarioPeso up ORDER BY up.dataRegistro DESC LIMIT 1")
-    UsuarioPeso findLatestPeso();
+    // Adicionado: Buscar pesos por intervalo de data para um usuário específico
+    List<UsuarioPeso> findByUsuarioAndDataRegistroBetweenOrderByDataRegistroDesc(
+            Usuario usuario, java.time.LocalDateTime start, java.time.LocalDateTime end);
 }

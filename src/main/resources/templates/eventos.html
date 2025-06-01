@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resumo de Eventos - PlanoSaude</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/style.css" th:href="@{/css/style.css}" rel="stylesheet">
+    <style>
+        .navbar-custom { margin-bottom: 20px; }
+        .alert-container { position: fixed; top: 20px; right: 20px; z-index: 1000; max-width: 400px; }
+    </style>
+</head>
+<body>
+    <!-- Menu de Navegação -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light navbar-custom">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">PlanoSaude</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/dashboard}">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/calendario}">Calendário</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/plano-treino}">Plano de Treino</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/plano-dieta}">Plano de Dieta</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" th:href="@{/eventos}">Resumo de Eventos</a>
+                    </li>
+                </ul>
+                <a th:href="@{/logout}" class="btn btn-secondary">Sair</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h1 class="text-center">Resumo de Eventos</h1>
+        <p class="text-center text-muted">Gerencie seus eventos e consultas médicas.</p>
+
+        <!-- Botão para Adicionar Novo Evento -->
+        <div class="text-center mb-4">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#eventoModal">Adicionar Novo Evento</button>
+        </div>
+
+        <!-- Lista de Eventos -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">Seus Eventos</div>
+                    <div class="card-body">
+                        <p th:if="${eventos.isEmpty()}">Nenhum evento registrado.</p>
+                        <table th:unless="${eventos.isEmpty()}" class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Título</th>
+                                    <th>Data de Início</th>
+                                    <th>Data de Término</th>
+                                    <th>Descrição</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="evento : ${eventos}">
+                                    <td th:text="${evento.title}"></td>
+                                    <td th:text="${#temporals.format(evento.start, 'dd/MM/yyyy HH:mm')}"></td>
+                                    <td th:text="${evento.end != null ? #temporals.format(evento.end, 'dd/MM/yyyy HH:mm') : 'Indefinido'}"></td>
+                                    <td th:text="${evento.description ?: 'Sem descrição'}"></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary" th:onclick="'editEvento(' + ${evento.id} + ')'">Editar</button>
+                                        <button class="btn btn-sm btn-danger" th:onclick="'deleteEvento(' + ${evento.id} + ')'">Excluir</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Container para Alertas -->
+        <div class="alert-container" id="alertContainer"></div>
+    </div>
+
+    <!-- Modal para Adicionar/Editar Evento -->
+    <div class="modal fade" id="eventoModal" tabindex="-1" aria-labelledby="eventoModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="eventoModalLabel">Adicionar Evento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="eventoForm" th:action="@{/eventos/salvar}" method="post">
+                        <input type="hidden" id="eventoId" name="id">
+                        <div class="mb-3">
+                            <label for="eventoTitle" class="form-label">Título</label>
+                            <input type="text" class="form-control" id="eventoTitle" name="title" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="eventoStart" class="form-label">Data e Hora de Início</label>
+                            <input type="datetime-local" class="form-control" id="eventoStart" name="start" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="eventoEnd" class="form-label">Data e Hora de Término (opcional)</label>
+                            <input type="datetime-local" class="form-control" id="eventoEnd" name="end">
+                        </div>
+                        <div class="mb-3">
+                            <label for="eventoDescription" class="form-label">Descrição</label>
+                            <textarea class="form-control" id="eventoDescription" name="description" rows="4"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="clearEventoForm">Limpar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="submit" form="eventoForm" class="btn btn-primary">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.role = 'alert';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            document.getElementById('alertContainer').appendChild(alertDiv);
+            setTimeout(() => alertDiv.remove(), 5000);
+        }
+
+        function editEvento(id) {
+            $.ajax({
+                url: `/api/eventos/${id}`,
+                type: 'GET',
+                success: function(evento) {
+                    document.getElementById('eventoId').value = evento.id;
+                    document.getElementById('eventoTitle').value = evento.title;
+                    document.getElementById('eventoStart').value = new Date(evento.start).toISOString().slice(0, 16);
+                    document.getElementById('eventoEnd').value = evento.end ? new Date(evento.end).toISOString().slice(0, 16) : '';
+                    document.getElementById('eventoDescription').value = evento.description || '';
+                    document.getElementById('eventoModalLabel').textContent = 'Editar Evento';
+                    new bootstrap.Modal(document.getElementById('eventoModal')).show();
+                },
+                error: function(xhr) {
+                    showAlert('Erro ao carregar evento: ' + (xhr.responseText || 'Falha na requisição'), 'danger');
+                }
+            });
+        }
+
+        function deleteEvento(id) {
+            if (confirm('Tem certeza que deseja excluir este evento?')) {
+                $.ajax({
+                    url: `/api/eventos/${id}`,
+                    type: 'DELETE',
+                    success: function() {
+                        showAlert('Evento excluído com sucesso!', 'success');
+                        window.location.reload();
+                    },
+                    error: function(xhr) {
+                        showAlert('Erro ao excluir evento: ' + (xhr.responseText || 'Falha na requisição'), 'danger');
+                    }
+                });
+            }
+        }
+
+        document.getElementById('clearEventoForm').addEventListener('click', function() {
+            document.getElementById('eventoForm').reset();
+            document.getElementById('eventoId').value = '';
+            document.getElementById('eventoModalLabel').textContent = 'Adicionar Evento';
+        });
+    </script>
+</body>
+</html>
