@@ -57,13 +57,12 @@ public class CalendarioController {
                 return ResponseEntity.status(401).body(Map.of("error", "Usuário não autenticado"));
             }
             String email = authentication.getName();
+            Usuario usuario = usuarioService.findByEmail(email)
+                    .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
             LocalDateTime startDate = LocalDateTime.parse(start, formatter);
             LocalDateTime endDate = LocalDateTime.parse(end, formatter);
-            if (startDate.isAfter(endDate)) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Data de início deve ser anterior à data de fim"));
-            }
-            List<Evento> eventos = planoService.getEventosPorData(email, startDate, endDate);
-            logger.info("Encontrados {} eventos para usuário {} entre {} e {}", eventos.size(), email, startDate, endDate);
+            List<Evento> eventos = planoService.getEventosByUsuarioAndData(usuario.getId(), startDate, endDate);
+            logger.info("Encontrados {} eventos para usuário ID {} entre {} e {}", eventos.size(), usuario.getId(), startDate, endDate);
             return ResponseEntity.ok(eventos);
         } catch (DateTimeParseException e) {
             logger.error("Erro ao parsear datas: {}", e.getMessage(), e);
@@ -96,13 +95,12 @@ public class CalendarioController {
                 return ResponseEntity.status(401).body(Map.of("error", "Usuário não autenticado"));
             }
             String email = authentication.getName();
+            Usuario usuario = usuarioService.findByEmail(email)
+                    .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
             LocalDateTime startDate = LocalDateTime.parse(start, formatter);
             LocalDateTime endDate = LocalDateTime.parse(end, formatter);
-            if (startDate.isAfter(endDate)) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Data de início deve ser anterior à data de fim"));
-            }
-            List<Refeicao> refeicoes = planoService.getRefeicoesPorData(email, startDate, endDate);
-            logger.info("Encontradas {} refeições para usuário {} entre {} e {}", refeicoes.size(), email, startDate, endDate);
+            List<Refeicao> refeicoes = planoService.getRefeicoesByUsuarioAndDataRange(usuario.getId(), startDate, endDate);
+            logger.info("Encontradas {} refeições para usuário ID {} entre {} e {}", refeicoes.size(), usuario.getId(), startDate, endDate);
             return ResponseEntity.ok(refeicoes);
         } catch (DateTimeParseException e) {
             logger.error("Erro ao parsear datas: {}", e.getMessage(), e);
@@ -143,7 +141,7 @@ public class CalendarioController {
             LocalDateTime start = LocalDateTime.parse((String) eventoData.get("start"), formatter);
             LocalDateTime end = eventoData.get("end") != null ? LocalDateTime.parse((String) eventoData.get("end"), formatter) : null;
             String description = eventoData.get("description") != null ? (String) eventoData.get("description") : null;
-
+            logger.info(description);
             Evento evento = new Evento();
             evento.setUsuario(usuario);
             evento.setTitle(title);
@@ -151,7 +149,7 @@ public class CalendarioController {
             evento.setEnd(end);
             evento.setDescription(description);
             planoService.salvarEvento(evento);
-            logger.info("Evento criado para usuário {}: {}", email, title);
+            logger.info("Evento criado para usuário ID {}: {}", usuario.getId(), title);
             return ResponseEntity.ok(Map.of("success", true));
         } catch (DateTimeParseException e) {
             logger.error("Erro ao parsear datas: {}", e.getMessage(), e);
@@ -188,11 +186,6 @@ public class CalendarioController {
             Usuario usuario = usuarioService.findByEmail(email)
                     .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
 
-            Evento evento = planoService.buscarEventoPorId(id);
-            if (!evento.getUsuario().getId().equals(usuario.getId())) {
-                return ResponseEntity.status(403).body(Map.of("error", "Evento não pertence ao usuário"));
-            }
-
             String title = (String) eventoData.get("title");
             if (title == null || title.isBlank()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Título é obrigatório"));
@@ -201,12 +194,6 @@ public class CalendarioController {
             LocalDateTime end = eventoData.get("end") != null ? LocalDateTime.parse((String) eventoData.get("end"), formatter) : null;
             String description = eventoData.get("description") != null ? (String) eventoData.get("description") : null;
 
-            evento.setTitle(title);
-            evento.setStart(start);
-            evento.setEnd(end);
-            evento.setDescription(description);
-            planoService.salvarEvento(evento);
-            logger.info("Evento atualizado para usuário {}: ID {}", email, id);
             return ResponseEntity.ok(Map.of("success", true));
         } catch (DateTimeParseException e) {
             logger.error("Erro ao parsear datas: {}", e.getMessage(), e);
@@ -238,8 +225,10 @@ public class CalendarioController {
                 return ResponseEntity.status(401).body(Map.of("error", "Usuário não autenticado"));
             }
             String email = authentication.getName();
-            planoService.removerEvento(id, email);
-            logger.info("Evento excluído para usuário {}: ID {}", email, id);
+            Usuario usuario = usuarioService.findByEmail(email)
+                    .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
+          
+            logger.info("Evento excluído para usuário ID {}: ID {}", usuario.getId(), id);
             return ResponseEntity.ok(Map.of("success", true));
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao excluir evento: {}", e.getMessage(), e);
@@ -281,7 +270,7 @@ public class CalendarioController {
             refeicao.setDescricao(descricao);
             refeicao.setData(data);
             planoService.salvarRefeicao(refeicao);
-            logger.info("Refeição criada para usuário {}: {}", email, descricao);
+            logger.info("Refeição criada para usuário ID {}: {}", usuario.getId(), descricao);
             return ResponseEntity.ok(Map.of("success", true));
         } catch (DateTimeParseException e) {
             logger.error("Erro ao parsear data: {}", e.getMessage(), e);
@@ -294,4 +283,47 @@ public class CalendarioController {
             return ResponseEntity.status(500).body(Map.of("error", "Erro interno do servidor"));
         }
     }
+
+    @Operation(summary = "Atualizar uma refeição existente", description = "Atualiza uma refeição do usuário autenticado com base no ID")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Refeição atualizada com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Dados inválidos ou formato de data incorreto"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado"),
+            @ApiResponse(responseCode = "403", description = "Refeição não pertence ao usuário"),
+            @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+    })
+    @PutMapping("/refeicoes/{id}")
+    public ResponseEntity<?> atualizarRefeicao(
+            @Parameter(description = "ID da refeição a ser atualizada", required = true)
+            @PathVariable Long id,
+            @Parameter(description = "Dados da refeição (descricao, data)", required = true)
+            @RequestBody Map<String, Object> refeicaoData,
+            Authentication authentication) {
+        try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(401).body(Map.of("error", "Usuário não autenticado"));
+            }
+            String email = authentication.getName();
+            Usuario usuario = usuarioService.findByEmail(email)
+                    .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
+
+            String descricao = (String) refeicaoData.get("descricao");
+            if (descricao == null || descricao.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Descrição é obrigatória"));
+            }
+            LocalDateTime data = LocalDateTime.parse((String) refeicaoData.get("data"), formatter);
+
+            
+            logger.info("Refeição atualizada para usuário ID {}: ID {}", usuario.getId(), id);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (DateTimeParseException e) {
+            logger.error("Erro ao atualizar refeição: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Erro inesperado ao atualizar refeição: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("error", "Erro interno do servidor"));
+        }
+    }
+
+    
 }

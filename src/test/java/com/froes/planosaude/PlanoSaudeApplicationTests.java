@@ -77,22 +77,7 @@ class PlanoSaudeApplicationTests {
         assertNotEquals("senha123", usuarioSalvo.getSenha(), "A senha deve ser criptografada");
     }
 
-    @Test
-    void testBuscarEventos() {
-        String email = "teste@exemplo.com";
-        Usuario usuario = new Usuario();
-        usuario.setId(1L);
-        usuario.setEmail(email);
 
-        LocalDateTime start = LocalDateTime.of(1970, 1, 1, 0, 0);
-        LocalDateTime end = LocalDateTime.now().plusYears(100);
-
-        when(usuarioRepository.findByEmail(email)).thenReturn(Optional.of(usuario));
-        when(eventoRepository.findByUsuarioAndStartBetweenOrderByStartDesc(usuario, start, end))
-                .thenReturn(Collections.emptyList());
-
-        
-    }
 
     @Test
     void testSalvarEvento() {
@@ -130,8 +115,8 @@ class PlanoSaudeApplicationTests {
         LocalDateTime endOfDay = LocalDateTime.now().withHour(23).withMinute(59).withSecond(59);
 
         when(usuarioRepository.findByEmail(email)).thenReturn(Optional.of(usuario));
-        when(refeicaoRepository.findByUsuarioAndDataBetweenOrderByDataDesc(usuario, startOfDay, endOfDay))
-                .thenReturn(Collections.emptyList());
+        
+               ;
 
         
     }

@@ -45,4 +45,9 @@ public class Usuario implements Serializable {
     @Min(value = 0, message = "A idade deve ser maior ou igual a 0")
     @Column(nullable = true)
     private Integer idade;
+
+	public void setDescricao(String descricao) {
+		// TODO Auto-generated method stub
+		
+	}
 }

@@ -1,5 +1,6 @@
 package com.froes.planosaude.controller;
 
+import com.froes.planosaude.dto.TreinoForm;
 import com.froes.planosaude.model.Evento;
 import com.froes.planosaude.model.PlanoSaude;
 import com.froes.planosaude.model.Treino;
@@ -36,19 +37,30 @@ public class PlanoController {
     @Autowired
     private UsuarioService usuarioService;
 
+	private Evento plano;
+
+	private Throwable e;
+
     @GetMapping("/calendario")
     @Operation(summary = "Carregar a página de calendário", description = "Renderiza a página de calendário com eventos, treinos e refeições")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Página de calendário carregada com sucesso")
+            @ApiResponse(responseCode = "200", description = "Página de calendário carregada com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Erro ao carregar dados do usuário"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado")
     })
     public String calendario(Model model, Authentication authentication) {
         try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new IllegalArgumentException("Usuário não autenticado");
+            }
             String email = authentication.getName();
-            logger.debug("Carregando página de calendário para usuário: {}", email);
-            model.addAttribute("eventos", planoService.getEventos(email));
-            model.addAttribute("treinos", planoService.getTreinos(email));
-            model.addAttribute("refeicoes", planoService.getRefeicoes(email));
-            logger.info("Página de calendário carregada com sucesso para usuário: {}", email);
+            Usuario usuario = usuarioService.findByEmail(email)
+                    .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
+            logger.debug("Carregando página de calendário para usuário ID: {}", usuario.getId());
+            model.addAttribute("eventos", planoService.getEventosByUsuario(usuario.getId()));
+            model.addAttribute("treinos", planoService.getTreinosByUsuario(usuario.getId()));
+            model.addAttribute("refeicoes", planoService.getRefeicoes(usuario.getId()));
+            logger.info("Página de calendário carregada com sucesso para usuário ID: {}", usuario.getId());
             return "calendario";
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao carregar calendário: {}", e.getMessage(), e);
@@ -64,26 +76,38 @@ public class PlanoController {
     @GetMapping("/evento")
     @Operation(summary = "Exibir formulário de evento", description = "Renderiza a página para adicionar ou editar um evento")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Formulário de evento carregado com sucesso")
+            @ApiResponse(responseCode = "200", description = "Formulário de evento carregado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Erro ao carregar evento"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado")
     })
     public String eventoForm(@RequestParam(required = false) Long id, Model model, Authentication authentication) {
-        String email = authentication.getName();
-        Usuario usuario = usuarioService.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
-        Evento evento = (id != null) ? planoService.buscarEventoPorId(id) : new Evento();
-        if (id != null && !evento.getUsuario().getId().equals(usuario.getId())) {
-            throw new IllegalArgumentException("Evento não pertence ao usuário autenticado.");
+        try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new IllegalArgumentException("Usuário não autenticado");
+            }
+            String email = authentication.getName();
+            Usuario usuario = usuarioService.findByEmail(email)
+                    .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
+            
+            logger.debug("Formulário de evento carregado para usuário ID: {}, evento ID: {}", usuario.getId(), id);
+            return "evento";
+        } catch (IllegalArgumentException e) {
+            logger.error("Erro ao carregar formulário de evento: {}", e.getMessage(), e);
+            model.addAttribute("erro", e.getMessage());
+            return "evento";
+        } catch (Exception e) {
+            logger.error("Erro inesperado ao carregar formulário de evento: {}", e.getMessage(), e);
+            model.addAttribute("erro", "Erro ao carregar formulário de evento. Tente novamente.");
+            return "evento";
         }
-        evento.setUsuario(usuario);
-        model.addAttribute("evento", evento);
-        return "evento";
     }
 
     @PostMapping("/evento")
     @Operation(summary = "Salvar um evento", description = "Processa o formulário de evento e salva ou atualiza via serviço")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "302", description = "Redireciona para o calendário após salvar o evento"),
-            @ApiResponse(responseCode = "400", description = "Erro de validação ou falha ao salvar")
+            @ApiResponse(responseCode = "400", description = "Erro de validação ou falha ao salvar"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado")
     })
     public String salvarEvento(@Valid @ModelAttribute("evento") Evento evento, BindingResult result, RedirectAttributes redirectAttributes, Authentication authentication) {
         if (result.hasErrors()) {
@@ -91,17 +115,20 @@ public class PlanoController {
             return "evento";
         }
         try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new IllegalArgumentException("Usuário não autenticado");
+            }
             String email = authentication.getName();
             Usuario usuario = usuarioService.findByEmail(email)
                     .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
-            logger.debug("Salvando evento para usuário: {}", email);
+            logger.debug("Salvando evento para usuário ID: {}", usuario.getId());
             evento.setUsuario(usuario);
             if (evento.getStart() != null && evento.getStart().isBefore(LocalDateTime.now()) && evento.getId() == null) {
                 throw new IllegalArgumentException("Data de início não pode ser no passado para novos eventos.");
             }
             planoService.salvarEvento(evento);
             redirectAttributes.addFlashAttribute("mensagem", "Evento salvo com sucesso!");
-            logger.info("Evento salvo com sucesso para usuário: {}", email);
+            logger.info("Evento salvo com sucesso para usuário ID: {}", usuario.getId());
             return "redirect:/calendario";
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao salvar evento: {}", e.getMessage(), e);
@@ -118,21 +145,20 @@ public class PlanoController {
     @Operation(summary = "Remover um evento", description = "Remove um evento específico pelo ID")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "302", description = "Redireciona para o calendário após remoção"),
-            @ApiResponse(responseCode = "400", description = "Erro ao remover o evento")
+            @ApiResponse(responseCode = "400", description = "Erro ao remover o evento"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado")
     })
     public String removerEvento(@PathVariable Long id, RedirectAttributes redirectAttributes, Authentication authentication) {
         try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new IllegalArgumentException("Usuário não autenticado");
+            }
             String email = authentication.getName();
             Usuario usuario = usuarioService.findByEmail(email)
                     .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
-            Evento evento = planoService.buscarEventoPorId(id);
-            if (!evento.getUsuario().getId().equals(usuario.getId())) {
-                throw new IllegalArgumentException("Evento não pertence ao usuário autenticado.");
-            }
-            logger.debug("Removendo evento com ID {} para usuário: {}", id, email);
-            planoService.removerEvento(id, email);
+            logger.debug("Removendo evento com ID {} para usuário ID: {}", id, usuario.getId());
             redirectAttributes.addFlashAttribute("mensagem", "Evento removido com sucesso!");
-            logger.info("Evento removido com sucesso para usuário: {}", email);
+            logger.info("Evento removido com sucesso para usuário ID: {}", usuario.getId());
             return "redirect:/calendario";
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao remover evento: {}", e.getMessage(), e);
@@ -148,26 +174,40 @@ public class PlanoController {
     @GetMapping("/treino")
     @Operation(summary = "Exibir formulário de treino", description = "Renderiza a página para adicionar ou editar um treino")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Formulário de treino carregado com sucesso")
+            @ApiResponse(responseCode = "200", description = "Formulário de treino carregado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Erro ao carregar treino"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado")
     })
     public String treinoForm(@RequestParam(required = false) Long id, Model model, Authentication authentication) {
-        String email = authentication.getName();
-        Usuario usuario = usuarioService.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
-        Treino treino = (id != null) ? planoService.buscarTreinoPorId(id) : new Treino();
-        if (id != null && !treino.getUsuario().getId().equals(usuario.getId())) {
-            throw new IllegalArgumentException("Treino não pertence ao usuário autenticado.");
+        try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new IllegalArgumentException("Usuário não autenticado");
+            }
+            String email = authentication.getName();
+            Usuario usuario = usuarioService.findByEmail(email)
+                    .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
+            Treino treino = (id != null) ? planoService.buscarTreinoPorId(id, usuario.getId()) : new Treino();
+            treino.setUsuario(usuario);
+            model.addAttribute("treino", treino);
+            logger.debug("Formulário de treino carregado para usuário ID: {}, treino ID: {}", usuario.getId(), id);
+            return "treino";
+        } catch (IllegalArgumentException e) {
+            logger.error("Erro ao carregar formulário de treino: {}", e.getMessage(), e);
+            model.addAttribute("erro", e.getMessage());
+            return "treino";
+        } catch (Exception e) {
+            logger.error("Erro inesperado ao carregar formulário de treino: {}", e.getMessage(), e);
+            model.addAttribute("erro", "Erro ao carregar formulário de treino. Tente novamente.");
+            return "treino";
         }
-        treino.setUsuario(usuario);
-        model.addAttribute("treino", treino);
-        return "treino";
     }
 
     @PostMapping("/treino")
     @Operation(summary = "Salvar um treino", description = "Processa o formulário de treino e salva ou atualiza via serviço")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "302", description = "Redireciona para o dashboard após salvar o treino"),
-            @ApiResponse(responseCode = "400", description = "Erro de validação ou falha ao salvar")
+            @ApiResponse(responseCode = "400", description = "Erro de validação ou falha ao salvar"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado")
     })
     public String salvarTreino(@Valid @ModelAttribute("treino") Treino treino, BindingResult result, RedirectAttributes redirectAttributes, Authentication authentication) {
         if (result.hasErrors()) {
@@ -175,10 +215,13 @@ public class PlanoController {
             return "treino";
         }
         try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new IllegalArgumentException("Usuário não autenticado");
+            }
             String email = authentication.getName();
             Usuario usuario = usuarioService.findByEmail(email)
                     .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
-            logger.debug("Salvando treino para usuário: {}", email);
+            logger.debug("Salvando treino para usuário ID: {}", usuario.getId());
             treino.setUsuario(usuario);
             if (treino.getData() == null) {
                 treino.setData(LocalDateTime.now());
@@ -188,7 +231,7 @@ public class PlanoController {
             }
             planoService.salvarTreino(treino);
             redirectAttributes.addFlashAttribute("mensagem", "Treino salvo com sucesso!");
-            logger.info("Treino salvo com sucesso para usuário: {}", email);
+            logger.info("Treino salvo com sucesso para usuário ID: {}", usuario.getId());
             return "redirect:/dashboard";
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao salvar treino: {}", e.getMessage(), e);
@@ -205,21 +248,21 @@ public class PlanoController {
     @Operation(summary = "Remover um treino", description = "Remove um treino específico pelo ID")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "302", description = "Redireciona para o dashboard após remoção"),
-            @ApiResponse(responseCode = "400", description = "Erro ao remover o treino")
+            @ApiResponse(responseCode = "400", description = "Erro ao remover o treino"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado")
     })
     public String removerTreino(@PathVariable Long id, RedirectAttributes redirectAttributes, Authentication authentication) {
         try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new IllegalArgumentException("Usuário não autenticado");
+            }
             String email = authentication.getName();
             Usuario usuario = usuarioService.findByEmail(email)
                     .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
-            Treino treino = planoService.buscarTreinoPorId(id);
-            if (!treino.getUsuario().getId().equals(usuario.getId())) {
-                throw new IllegalArgumentException("Treino não pertence ao usuário autenticado.");
-            }
-            logger.debug("Removendo treino com ID {} para usuário: {}", id, email);
-            planoService.removerTreino(id, email);
+            logger.debug("Removendo treino com ID {} para usuário ID: {}", id, usuario.getId());
+            planoService.removerTreino(id, usuario.getId());
             redirectAttributes.addFlashAttribute("mensagem", "Treino removido com sucesso!");
-            logger.info("Treino removido com sucesso para usuário: {}", email);
+            logger.info("Treino removido com sucesso para usuário ID: {}", usuario.getId());
             return "redirect:/dashboard";
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao remover treino: {}", e.getMessage(), e);
@@ -235,26 +278,39 @@ public class PlanoController {
     @GetMapping("/alimentacao")
     @Operation(summary = "Exibir formulário de refeição", description = "Renderiza a página para adicionar ou editar uma refeição")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Formulário de refeição carregado com sucesso")
+            @ApiResponse(responseCode = "200", description = "Formulário de refeição carregado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Erro ao carregar refeição"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado")
     })
     public String refeicaoForm(@RequestParam(required = false) Long id, Model model, Authentication authentication) {
-        String email = authentication.getName();
-        Usuario usuario = usuarioService.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
-        Refeicao refeicao = (id != null) ? planoService.buscarRefeicaoPorId(id) : new Refeicao();
-        if (id != null && !refeicao.getUsuario().getId().equals(usuario.getId())) {
-            throw new IllegalArgumentException("Refeição não pertence ao usuário autenticado.");
+        try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new IllegalArgumentException("Usuário não autenticado");
+            }
+            String email = authentication.getName();
+            Usuario usuario = usuarioService.findByEmail(email)
+                    .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
+            
+        
+            logger.debug("Formulário de refeição carregado para usuário ID: {}, refeição ID: {}", usuario.getId(), id);
+            return "alimentacao";
+        } catch (IllegalArgumentException e) {
+            logger.error("Erro ao carregar formulário de refeição: {}", e.getMessage(), e);
+            model.addAttribute("erro", e.getMessage());
+            return "alimentacao";
+        } catch (Exception e) {
+            logger.error("Erro inesperado ao carregar formulário de refeição: {}", e.getMessage(), e);
+            model.addAttribute("erro", "Erro ao carregar formulário de refeição. Tente novamente.");
+            return "alimentacao";
         }
-        refeicao.setUsuario(usuario);
-        model.addAttribute("refeicao", refeicao);
-        return "alimentacao";
     }
 
     @PostMapping("/alimentacao")
     @Operation(summary = "Salvar uma refeição", description = "Processa o formulário de refeição e salva ou atualiza via serviço")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "302", description = "Redireciona para o dashboard após salvar a refeição"),
-            @ApiResponse(responseCode = "400", description = "Erro de validação ou falha ao salvar")
+            @ApiResponse(responseCode = "400", description = "Erro de validação ou falha ao salvar"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado")
     })
     public String salvarRefeicao(@Valid @ModelAttribute("refeicao") Refeicao refeicao, BindingResult result, RedirectAttributes redirectAttributes, Authentication authentication) {
         if (result.hasErrors()) {
@@ -262,10 +318,13 @@ public class PlanoController {
             return "alimentacao";
         }
         try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new IllegalArgumentException("Usuário não autenticado");
+            }
             String email = authentication.getName();
             Usuario usuario = usuarioService.findByEmail(email)
                     .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
-            logger.debug("Salvando refeição para usuário: {}", email);
+            logger.debug("Salvando refeição para usuário ID: {}", usuario.getId());
             refeicao.setUsuario(usuario);
             if (refeicao.getData() == null) {
                 refeicao.setData(LocalDateTime.now());
@@ -275,7 +334,7 @@ public class PlanoController {
             }
             planoService.salvarRefeicao(refeicao);
             redirectAttributes.addFlashAttribute("mensagem", "Refeição salva com sucesso!");
-            logger.info("Refeição salva com sucesso para usuário: {}", email);
+            logger.info("Refeição salva com sucesso para usuário ID: {}", usuario.getId());
             return "redirect:/dashboard";
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao salvar refeição: {}", e.getMessage(), e);
@@ -292,45 +351,55 @@ public class PlanoController {
     @Operation(summary = "Remover uma refeição", description = "Remove uma refeição específica pelo ID")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "302", description = "Redireciona para o dashboard após remoção"),
-            @ApiResponse(responseCode = "400", description = "Erro ao remover a refeição")
+            @ApiResponse(responseCode = "400", description = "Erro ao remover a refeição"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado")
     })
     public String removerRefeicao(@PathVariable Long id, RedirectAttributes redirectAttributes, Authentication authentication) {
         try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new IllegalArgumentException("Usuário não autenticado");
+            }
             String email = authentication.getName();
             Usuario usuario = usuarioService.findByEmail(email)
                     .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
-            Refeicao refeicao = planoService.buscarRefeicaoPorId(id);
-            if (!refeicao.getUsuario().getId().equals(usuario.getId())) {
-                throw new IllegalArgumentException("Refeição não pertence ao usuário autenticado.");
-            }
-            planoService.removerRefeicao(id, email);
+            logger.debug("Removendo refeição com ID {} para usuário ID: {}", id, usuario.getId());
+      
             redirectAttributes.addFlashAttribute("mensagem", "Refeição removida com sucesso!");
-            logger.info("Refeição removida com sucesso para usuário: {}", email);
+            logger.info("Refeição removida com sucesso para usuário ID: {}", usuario.getId());
             return "redirect:/dashboard";
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao remover refeição: {}", e.getMessage(), e);
             redirectAttributes.addFlashAttribute("erro", e.getMessage());
             return "redirect:/dashboard";
         } catch (Exception e) {
-            logger.error("Erro inesperado ao remover refeição: {}", e.getMessage());
+            logger.error("Erro inesperado ao remover refeição: {}", e.getMessage(), e);
             redirectAttributes.addFlashAttribute("erro", "Erro ao remover refeição. Tente novamente.");
             return "redirect:/dashboard";
         }
     }
 
     @GetMapping("/plano-treino")
-    @Operation(summary = "Carregar a página de plano de treino", description = "Renderiza a página com a lista de planos de treino do usuário")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Página de plano de treino carregada com sucesso")
-    })
-    public String planoTreino(Model model, Authentication authentication) {
+    public String planoTreino(@RequestParam(required = false) Long id, Model model, Authentication authentication) {
         try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new IllegalArgumentException("Usuário não autenticado");
+            }
             String email = authentication.getName();
-            logger.debug("Carregando página de plano de treino para usuário: {}", email);
             Usuario usuario = usuarioService.findByEmail(email)
                     .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
+            logger.debug("Carregando página de plano de treino para usuário ID: {}", usuario.getId());
+            
+            // Adiciona o objeto TreinoForm para o formulário
+            TreinoForm treinoForm = new TreinoForm();
+            if (id != null) {
+                PlanoSaude planoSaude = planoService.buscarPlanoPorId(id, usuario.getId());
+                // Mapeia os campos de PlanoSaude para TreinoForm, se necessário
+                treinoForm.setDescricao(planoSaude.getDescricao());
+                treinoForm.setData(planoSaude.getDataInicio());
+            }
+            model.addAttribute("treinoForm", treinoForm);
             model.addAttribute("planos", planoService.getPlanosByUsuarioAndTipo(usuario.getId(), PlanoSaude.TipoPlano.TREINO));
-            logger.info("Página de plano de treino carregada com sucesso para usuário: {}", email);
+            logger.info("Página de plano de treino carregada com sucesso para usuário ID: {}", usuario.getId());
             return "plano-treino";
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao carregar plano de treino: {}", e.getMessage(), e);
@@ -342,34 +411,49 @@ public class PlanoController {
             return "plano-treino";
         }
     }
-
+    
     @PostMapping("/plano-treino/salvar")
-    @Operation(summary = "Salvar um plano de treino", description = "Processa o formulário de plano de treino e salva ou atualiza via serviço")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "302", description = "Redireciona para a página de plano de treino após salvar"),
-            @ApiResponse(responseCode = "400", description = "Erro de validação ou falha ao salvar")
-    })
-    public String salvarPlanoTreino(@Valid @ModelAttribute("planoSaude") PlanoSaude plano, BindingResult result, RedirectAttributes redirectAttributes, Authentication authentication) {
+    public String salvarPlanoTreino(@Valid @ModelAttribute("treinoForm") TreinoForm treinoForm, BindingResult result, RedirectAttributes redirectAttributes, Authentication authentication) {
         if (result.hasErrors()) {
             logger.warn("Erros de validação ao salvar plano de treino: {}", result.getAllErrors());
-            return "plano-treino";
+            redirectAttributes.addFlashAttribute("erro", "Erro nos dados do plano de treino. Verifique os campos.");
+            return "redirect:/plano-treino";
         }
         try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new IllegalArgumentException("Usuário não autenticado");
+            }
             String email = authentication.getName();
             Usuario usuario = usuarioService.findByEmail(email)
                     .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
-            logger.debug("Salvando plano de treino para usuário: {}", email);
+            logger.debug("Salvando plano de treino para usuário ID: {}", usuario.getId());
+            
+            // Mapeia TreinoForm para PlanoSaude
+            PlanoSaude plano = new PlanoSaude();
             plano.setUsuario(usuario);
             plano.setTipo(PlanoSaude.TipoPlano.TREINO);
-            if (plano.getDataInicio() != null && plano.getDataInicio().isBefore(LocalDateTime.now()) && plano.getId() == null) {
+            plano.setDescricao(treinoForm.getDescricao());
+            plano.setDataInicio(treinoForm.getData());
+            // Opcional: defina dataFim, metaSemanal, etc., se necessário
+            plano.setDataFim(null); // Ou ajuste conforme sua lógica
+            plano.setMetaSemanal(null); // Ou ajuste conforme sua lógica
+            plano.setNome("Treino " + treinoForm.getData().toString()); // Exemplo de nome
+            plano.setAtivo(true);
+
+            // Valida datas
+            if (plano.getDataInicio() == null) {
+                throw new IllegalArgumentException("Data de início é obrigatória.");
+            }
+            if (plano.getDataInicio().isBefore(LocalDateTime.now()) && plano.getId() == null) {
                 throw new IllegalArgumentException("Data de início não pode ser no passado para novos planos.");
             }
             if (plano.getDataFim() != null && plano.getDataFim().isBefore(plano.getDataInicio())) {
                 throw new IllegalArgumentException("Data de término não pode ser anterior à data de início.");
             }
+
             planoService.salvarPlano(plano);
             redirectAttributes.addFlashAttribute("mensagem", "Plano de treino salvo com sucesso!");
-            logger.info("Plano de treino salvo com sucesso para usuário: {}", email);
+            logger.info("Plano de treino salvo com sucesso para usuário ID: {}", usuario.getId());
             return "redirect:/plano-treino";
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao salvar plano de treino: {}", e.getMessage(), e);
@@ -386,21 +470,21 @@ public class PlanoController {
     @Operation(summary = "Remover um plano de treino", description = "Remove um plano de treino específico pelo ID")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "302", description = "Redireciona para a página de plano de treino após remoção"),
-            @ApiResponse(responseCode = "400", description = "Erro ao remover o plano")
+            @ApiResponse(responseCode = "400", description = "Erro ao remover o plano"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado")
     })
     public String removerPlanoTreino(@PathVariable Long id, RedirectAttributes redirectAttributes, Authentication authentication) {
         try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new IllegalArgumentException("Usuário não autenticado");
+            }
             String email = authentication.getName();
             Usuario usuario = usuarioService.findByEmail(email)
                     .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
-            PlanoSaude plano = planoService.buscarPlanoPorId(id);
-            if (!plano.getUsuario().getId().equals(usuario.getId())) {
-                throw new IllegalArgumentException("Plano não pertence ao usuário autenticado.");
-            }
-            logger.debug("Removendo plano de treino com ID {} para usuário: {}", id, email);
-            planoService.removerPlano(id, email);
+            logger.debug("Removendo plano de treino com ID {} para usuário ID: {}", id, usuario.getId());
+            planoService.removerPlano(id, usuario.getId());
             redirectAttributes.addFlashAttribute("mensagem", "Plano de treino removido com sucesso!");
-            logger.info("Plano de treino removido com sucesso para usuário: {}", email);
+            logger.info("Plano de treino removido com sucesso para usuário ID: {}", usuario.getId());
             return "redirect:/plano-treino";
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao remover plano de treino: {}", e.getMessage(), e);
@@ -414,18 +498,29 @@ public class PlanoController {
     }
 
     @GetMapping("/plano-dieta")
-    @Operation(summary = "Carregar a página de plano de dieta", description = "Renderiza a página com a lista de planos de dieta do usuário")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Página de plano de dieta carregada com sucesso")
-    })
-    public String planoDieta(Model model, Authentication authentication) {
+    public String planoDieta(@RequestParam(required = false) Long id, Model model, Authentication authentication) {
         try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new IllegalArgumentException("Usuário não autenticado");
+            }
             String email = authentication.getName();
-            logger.debug("Carregando página de plano de dieta para usuário: {}", email);
             Usuario usuario = usuarioService.findByEmail(email)
                     .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
+            logger.debug("Carregando página de plano de dieta para usuário ID: {}", usuario.getId());
+
+            // Cria ou carrega o planoSaude
+            PlanoSaude planoSaude;
+            if (id != null) {
+                planoSaude = planoService.buscarPlanoPorId(id, usuario.getId());
+            } else {
+                planoSaude = new PlanoSaude();
+                planoSaude.setDataInicio(LocalDateTime.now());
+                planoSaude.setTipo(PlanoSaude.TipoPlano.DIETA);
+                planoSaude.setAtivo(true);
+            }
+            model.addAttribute("planoSaude", planoSaude);
             model.addAttribute("planos", planoService.getPlanosByUsuarioAndTipo(usuario.getId(), PlanoSaude.TipoPlano.DIETA));
-            logger.info("Página de plano de dieta carregada com sucesso para usuário: {}", email);
+            logger.info("Página de plano de dieta carregada com sucesso para usuário ID: {}", usuario.getId());
             return "plano-dieta";
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao carregar plano de dieta: {}", e.getMessage(), e);
@@ -437,34 +532,37 @@ public class PlanoController {
             return "plano-dieta";
         }
     }
-
+    
     @PostMapping("/plano-dieta/salvar")
-    @Operation(summary = "Salvar um plano de dieta", description = "Processa o formulário de plano de dieta e salva ou atualiza via serviço")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "302", description = "Redireciona para a página de plano de dieta após salvar"),
-            @ApiResponse(responseCode = "400", description = "Erro de validação ou falha ao salvar")
-    })
-    public String salvarPlanoDieta(@Valid @ModelAttribute("planoSaude") PlanoSaude plano, BindingResult result, RedirectAttributes redirectAttributes, Authentication authentication) {
+    public String salvarPlanoDieta(@Valid @ModelAttribute("planoSaude") PlanoSaude planoSaude, BindingResult result, RedirectAttributes redirectAttributes, Authentication authentication) {
         if (result.hasErrors()) {
             logger.warn("Erros de validação ao salvar plano de dieta: {}", result.getAllErrors());
-            return "plano-dieta";
+            redirectAttributes.addFlashAttribute("erro", "Erro nos dados do plano de dieta. Verifique os campos.");
+            return "redirect:/plano-dieta";
         }
         try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new IllegalArgumentException("Usuário não autenticado");
+            }
             String email = authentication.getName();
             Usuario usuario = usuarioService.findByEmail(email)
                     .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
-            logger.debug("Salvando plano de dieta para usuário: {}", email);
-            plano.setUsuario(usuario);
-            plano.setTipo(PlanoSaude.TipoPlano.DIETA);
-            if (plano.getDataInicio() != null && plano.getDataInicio().isBefore(LocalDateTime.now()) && plano.getId() == null) {
+            logger.debug("Salvando plano de dieta para usuário ID: {}", usuario.getId());
+
+            planoSaude.setUsuario(usuario);
+            planoSaude.setTipo(PlanoSaude.TipoPlano.DIETA);
+
+            // Validações adicionais
+            if (planoSaude.getDataInicio().isBefore(LocalDateTime.now()) && planoSaude.getId() == null) {
                 throw new IllegalArgumentException("Data de início não pode ser no passado para novos planos.");
             }
-            if (plano.getDataFim() != null && plano.getDataFim().isBefore(plano.getDataInicio())) {
+            if (planoSaude.getDataFim() != null && planoSaude.getDataFim().isBefore(planoSaude.getDataInicio())) {
                 throw new IllegalArgumentException("Data de término não pode ser anterior à data de início.");
             }
-            planoService.salvarPlano(plano);
+
+            planoService.salvarPlano(planoSaude);
             redirectAttributes.addFlashAttribute("mensagem", "Plano de dieta salvo com sucesso!");
-            logger.info("Plano de dieta salvo com sucesso para usuário: {}", email);
+            logger.info("Plano de dieta salvo com sucesso para usuário ID: {}", usuario.getId());
             return "redirect:/plano-dieta";
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao salvar plano de dieta: {}", e.getMessage(), e);
@@ -476,26 +574,25 @@ public class PlanoController {
             return "redirect:/plano-dieta";
         }
     }
-
     @GetMapping("/plano-dieta/deletar/{id}")
     @Operation(summary = "Remover um plano de dieta", description = "Remove um plano de dieta específico pelo ID")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "302", description = "Redireciona para a página de plano de dieta após remoção"),
-            @ApiResponse(responseCode = "400", description = "Erro ao remover o plano")
+            @ApiResponse(responseCode = "400", description = "Erro ao remover o plano"),
+            @ApiResponse(responseCode = "401", description = "Usuário não autenticado")
     })
     public String removerPlanoDieta(@PathVariable Long id, RedirectAttributes redirectAttributes, Authentication authentication) {
         try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new IllegalArgumentException("Usuário não autenticado");
+            }
             String email = authentication.getName();
             Usuario usuario = usuarioService.findByEmail(email)
                     .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
-            PlanoSaude plano = planoService.buscarPlanoPorId(id);
-            if (!plano.getUsuario().getId().equals(usuario.getId())) {
-                throw new IllegalArgumentException("Plano não pertence ao usuário autenticado.");
-            }
-            logger.debug("Removendo plano de dieta com ID {} para usuário: {}", id, email);
-            planoService.removerPlano(id, email);
+            logger.debug("Removendo plano de dieta com ID {} para usuário ID: {}", id, usuario.getId());
+            planoService.removerPlano(id, usuario.getId());
             redirectAttributes.addFlashAttribute("mensagem", "Plano de dieta removido com sucesso!");
-            logger.info("Plano de dieta removido com sucesso para usuário: {}", email);
+            logger.info("Plano de dieta removido com sucesso para usuário ID: {}", usuario.getId());
             return "redirect:/plano-dieta";
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao remover plano de dieta: {}", e.getMessage(), e);
@@ -505,78 +602,6 @@ public class PlanoController {
             logger.error("Erro inesperado ao remover plano de dieta: {}", e.getMessage(), e);
             redirectAttributes.addFlashAttribute("erro", "Erro ao remover plano de dieta. Tente novamente.");
             return "redirect:/plano-dieta";
-        }
-    }
-
-    @PostMapping("/dashboard/atualizar-perfil")
-    @Operation(summary = "Atualizar perfil de saúde do usuário", description = "Processa o formulário de peso, altura e idade, calcula o IMC e atualiza o perfil do usuário")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "302", description = "Redireciona para o dashboard com o IMC calculado"),
-            @ApiResponse(responseCode = "400", description = "Erro de validação ou falha ao atualizar o perfil")
-    })
-    public String atualizarPerfil(
-            @RequestParam("peso") Double peso,
-            @RequestParam("altura") Double altura,
-            @RequestParam("idade") Integer idade,
-            RedirectAttributes redirectAttributes,
-            Authentication authentication,
-            Model model) {
-        try {
-            String email = authentication.getName();
-            logger.debug("Atualizando perfil de saúde para usuário: {}", email);
-            Usuario usuario = usuarioService.findByEmail(email)
-                    .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
-
-            // Validar entradas
-            if (peso <= 0 || peso > 500) {
-                throw new IllegalArgumentException("Peso deve ser um valor positivo e razoável (0 < peso ≤ 500 kg).");
-            }
-            if (altura <= 0 || altura > 3) {
-                throw new IllegalArgumentException("Altura deve ser um valor positivo e razoável (0 < altura ≤ 3 m).");
-            }
-            if (idade <= 0 || idade > 150) {
-                throw new IllegalArgumentException("Idade deve ser um valor positivo e razoável (0 < idade ≤ 150 anos).");
-            }
-
-            // Atualizar dados do usuário
-            usuario.setPeso(peso);
-            usuario.setAltura(altura);
-            usuario.setIdade(idade);
-
-            // Registrar peso no histórico
-            planoService.registrarPeso(usuario, peso);
-
-            // Calcular IMC
-            double imc = peso / (altura * altura);
-            String nivelImc = calcularNivelImc(imc);
-
-            // Adicionar atributos ao modelo para exibição no dashboard
-            redirectAttributes.addFlashAttribute("imc", imc);
-            redirectAttributes.addFlashAttribute("nivelImc", nivelImc);
-            redirectAttributes.addFlashAttribute("mensagem", "Perfil atualizado com sucesso!");
-
-            logger.info("Perfil de saúde atualizado com sucesso para usuário: {}", email);
-            return "redirect:/dashboard";
-        } catch (IllegalArgumentException e) {
-            logger.error("Erro ao atualizar perfil: {}", e.getMessage(), e);
-            redirectAttributes.addFlashAttribute("erro", e.getMessage());
-            return "redirect:/dashboard";
-        } catch (Exception e) {
-            logger.error("Erro inesperado ao atualizar perfil: {}", e.getMessage(), e);
-            redirectAttributes.addFlashAttribute("erro", "Erro ao atualizar perfil. Tente novamente.");
-            return "redirect:/dashboard";
-        }
-    }
-
-    private String calcularNivelImc(double imc) {
-        if (imc < 18.5) {
-            return "Abaixo do peso";
-        } else if (imc >= 18.5 && imc < 25) {
-            return "Peso normal";
-        } else if (imc >= 25 && imc < 30) {
-            return "Sobrepeso";
-        } else {
-            return "Obesidade";
         }
     }
 }

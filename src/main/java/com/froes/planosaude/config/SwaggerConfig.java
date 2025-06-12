@@ -17,3 +17,4 @@ public class SwaggerConfig {
                         .description("API para gerenciamento de eventos, treinos e refeições no sistema PlanoSaude"));
     }
 }
+

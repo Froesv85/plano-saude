@@ -51,8 +51,10 @@ public class TreinoController {
                 return ResponseEntity.status(401).body(Map.of("error", "Usuário não autenticado"));
             }
             String email = authentication.getName();
-            List<Treino> treinos = planoService.getTreinos(email);
-            logger.info("Encontrados {} treinos para usuário: {}", treinos.size(), email);
+            Usuario usuario = usuarioService.findByEmail(email)
+                    .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
+            List<Treino> treinos = planoService.getTreinosByUsuario(usuario.getId());
+            logger.info("Encontrados {} treinos para usuário ID: {}", treinos.size(), usuario.getId());
             return ResponseEntity.ok(treinos);
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao buscar treinos: {}", e.getMessage(), e);
@@ -82,13 +84,12 @@ public class TreinoController {
                 return ResponseEntity.status(401).body(Map.of("error", "Usuário não autenticado"));
             }
             String email = authentication.getName();
+            Usuario usuario = usuarioService.findByEmail(email)
+                    .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
             LocalDateTime startDate = LocalDateTime.parse(start, formatter);
             LocalDateTime endDate = LocalDateTime.parse(end, formatter);
-            if (startDate.isAfter(endDate)) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Data de início deve ser anterior à data de fim"));
-            }
-            List<Treino> treinos = planoService.getTreinosPorData(email, startDate, endDate);
-            logger.info("Encontrados {} treinos para usuário {} entre {} e {}", treinos.size(), email, startDate, endDate);
+            List<Treino> treinos = planoService.getTreinosByUsuarioAndDataRange(usuario.getId(), startDate, endDate);
+            logger.info("Encontrados {} treinos para usuário ID {} entre {} e {}", treinos.size(), usuario.getId(), startDate, endDate);
             return ResponseEntity.ok(treinos);
         } catch (DateTimeParseException e) {
             logger.error("Erro ao parsear datas: {}", e.getMessage(), e);
@@ -127,16 +128,13 @@ public class TreinoController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Descrição é obrigatória"));
             }
             LocalDateTime data = LocalDateTime.parse((String) treinoData.get("data"), formatter);
-            if (data.isBefore(LocalDateTime.now())) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Data do treino não pode ser no passado"));
-            }
 
             Treino treino = new Treino();
             treino.setUsuario(usuario);
             treino.setDescricao(descricao);
             treino.setData(data);
             planoService.salvarTreino(treino);
-            logger.info("Treino adicionado para usuário {}: {}", email, descricao);
+            logger.info("Treino adicionado para usuário ID {}: {}", usuario.getId(), descricao);
             return ResponseEntity.ok(Map.of("success", true));
         } catch (DateTimeParseException e) {
             logger.error("Erro ao parsear data: {}", e.getMessage(), e);
@@ -172,14 +170,10 @@ public class TreinoController {
             String email = authentication.getName();
             Usuario usuario = usuarioService.findByEmail(email)
                     .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
-            Treino existente = planoService.buscarTreinoPorId(id);
-            if (!existente.getUsuario().getId().equals(usuario.getId())) {
-                return ResponseEntity.status(403).body(Map.of("error", "Treino não pertence ao usuário"));
-            }
             treino.setId(id);
             treino.setUsuario(usuario);
             Treino salvo = planoService.salvarTreino(treino);
-            logger.info("Treino editado para usuário {}: ID {}", email, id);
+            logger.info("Treino editado para usuário ID {}: ID {}", usuario.getId(), id);
             return ResponseEntity.ok(salvo);
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao editar treino: {}", e.getMessage(), e);
@@ -210,12 +204,8 @@ public class TreinoController {
             String email = authentication.getName();
             Usuario usuario = usuarioService.findByEmail(email)
                     .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
-            Treino treino = planoService.buscarTreinoPorId(id);
-            if (!treino.getUsuario().getId().equals(usuario.getId())) {
-                return ResponseEntity.status(403).body(Map.of("error", "Treino não pertence ao usuário"));
-            }
-            planoService.removerTreino(id, email);
-            logger.info("Treino removido para usuário {}: ID {}", email, id);
+            planoService.removerTreino(id, usuario.getId());
+            logger.info("Treino removido para usuário ID {}: ID {}", usuario.getId(), id);
             return ResponseEntity.noContent().build();
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao remover treino: {}", e.getMessage(), e);

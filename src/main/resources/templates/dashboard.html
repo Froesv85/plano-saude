@@ -3,289 +3,195 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="_csrf" th:content="${_csrf.token}"/>
-    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
-    <title>Dashboard - Saúde Perfeita</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-    <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background-color: #f8f9fa;
-        }
-        .container {
-            max-width: 1200px;
-            margin-top: 20px;
-        }
-        .navbar-brand {
-            font-weight: bold;
-        }
-        .card {
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }
-        .card-header {
-            background-color: #007bff;
-            color: white;
-            font-weight: bold;
-        }
-        .alert-container {
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            z-index: 1000;
-            max-width: 400px;
-        }
-        .form-control:focus {
-            border-color: #007bff;
-            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
-        }
-        .btn-primary {
-            transition: transform 0.2s;
-        }
-        .btn-primary:hover {
-            transform: scale(1.05);
-        }
-        .list-group-item {
-            border: none;
-            padding: 10px 0;
-        }
-        .loading-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 9999;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-size: 24px;
-        }
-    </style>
+    <title>Dashboard - PlanoSaude</title>
+    <link href="/webjars/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/webjars/bootstrap-icons/1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link th:href="@{/css/style.css}" rel="stylesheet">
 </head>
 <body>
     <!-- Navigation Bar -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark navbar-custom">
         <div class="container-fluid">
-            <a class="navbar-brand" href="/dashboard">Saúde Perfeita</a>
+            <a class="navbar-brand" href="#">PlanoSaude</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
+                <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
                         <a class="nav-link active" aria-current="page" th:href="@{/dashboard}">Dashboard</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" th:href="@{/calendario}">Calendário</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/plano-treino}">Plano de Treino</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/plano-dieta}">Plano de Dieta</a>
+                    </li>
+                    <li class="nav-item">
+                        <form th:action="@{/logout}" method="post" class="d-inline">
+                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                            <button type="submit" class="nav-link btn btn-link">Sair</button>
+                        </form>
+                    </li>
                 </ul>
-                <form class="d-flex" th:action="@{/logout}" method="post">
-                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                    <button class="btn btn-outline-danger" type="submit">Sair</button>
-                </form>
             </div>
         </div>
     </nav>
 
-    <div class="container">
-        <!-- Greeting -->
-        <h1 class="text-center my-4">Bem-vindo, <span sec:authentication="principal.username"></span>!</h1>
-        <p class="text-center text-muted">"Controle suas atividades diárias e alcance seus objetivos com disciplina e foco!"</p>
+    <!-- Alerts -->
+    <div class="container mt-3">
+        <div th:if="${mensagem}" class="alert alert-success alert-dismissible fade show" role="alert">
+            <span th:text="${mensagem}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        <div th:if="${erro}" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <span th:text="${erro}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
 
-        <!-- Daily Activities -->
-        <div class="row">
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header">Eventos do Dia</div>
-                    <div class="card-body">
-                        <div th:if="${eventos.isEmpty()}" class="text-muted">Nenhum evento agendado para hoje.</div>
-                        <ul class="list-group" th:unless="${eventos.isEmpty()}">
-                            <li class="list-group-item" th:each="evento : ${eventos}">
-                                <span th:text="${evento.title} + ' às ' + ${#temporals.format(evento.start, 'HH:mm')}"></span>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
+    <!-- Main Content -->
+    <div class="container mt-5">
+        <h1 class="mb-4">Bem-vindo, <span th:text="${#authentication.name}"></span>!</h1>
+
+        <!-- User Profile Form -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2>Atualizar Perfil</h2>
             </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header">Refeições do Dia</div>
-                    <div class="card-body">
-                        <div th:if="${refeicoes.isEmpty()}" class="text-muted">Nenhuma refeição registrada para hoje.</div>
-                        <ul class="list-group" th:unless="${refeicoes.isEmpty()}">
-                            <li class="list-group-item" th:each="refeicao : ${refeicoes}">
-                                <span th:text="${refeicao.descricao} + ' às ' + ${#temporals.format(refeicao.data, 'HH:mm')}"></span>
-                            </li>
-                        </ul>
+            <div class="card-body">
+                <form th:action="@{/dashboard/atualizar-perfil}" th:object="${perfilForm}" method="post" id="perfilForm">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="peso" class="form-label">Peso (kg)</label>
+                            <input type="number" id="peso" th:field="*{peso}" class="form-control" step="0.1" min="30" max="300" required aria-describedby="pesoHelp">
+                            <div id="pesoHelp" class="form-text">Entre 30 e 300 kg</div>
+                            <div th:if="${#fields.hasErrors('peso')}" th:errors="*{peso}" class="text-danger"></div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="altura" class="form-label">Altura (m)</label>
+                            <input type="number" id="altura" th:field="*{altura}" class="form-control" step="0.01" min="1.0" max="2.5" required aria-describedby="alturaHelp">
+                            <div id="alturaHelp" class="form-text">Entre 1,0 e 2,5 m</div>
+                            <div th:if="${#fields.hasErrors('altura')}" th:errors="*{altura}" class="text-danger"></div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="idade" class="form-label">Idade (anos)</label>
+                            <input type="number" id="idade" th:field="*{idade}" class="form-control" min="10" max="120" required aria-describedby="idadeHelp">
+                            <div id="idadeHelp" class="form-text">Entre 10 e 120 anos</div>
+                            <div th:if="${#fields.hasErrors('idade')}" th:errors="*{idade}" class="text-danger"></div>
+                        </div>
                     </div>
-                </div>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">Atualizar Perfil</button>
+                    <span class="spinner-border spinner-border-sm d-none" id="loadingSpinner" role="status" aria-hidden="true"></span>
+                </form>
             </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header">Treinos do Dia</div>
-                    <div class="card-body">
-                        <div th:if="${treinos.isEmpty()}" class="text-muted">Nenhum treino registrado para hoje.</div>
-                        <ul class="list-group" th:unless="${treinos.isEmpty()}">
-                            <li class="list-group-item" th:each="treino : ${treinos}">
-                                <span th:text="${treino.descricao} + ' às ' + ${#temporals.format(treino.data, 'HH:mm')}"></span>
-                            </li>
-                        </ul>
-                    </div>
+        </div>
+
+        <!-- BMI Display -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2>Seu IMC</h2>
+            </div>
+            <div class="card-body">
+                <div th:if="${imc != null}">
+                    <p>IMC: <span th:text="${#numbers.formatDecimal(imc, 1, 2)}"></span></p>
+                    <p>Nível: <span th:text="${nivelImc}"></span></p>
+                </div>
+                <div th:unless="${imc != null}">
+                    <p>Preencha peso e altura para calcular seu IMC.</p>
                 </div>
             </div>
         </div>
 
-        <!-- Profile and BMI -->
+        <!-- Daily Events, Workouts, and Meals -->
         <div class="row">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">Seu Perfil de Saúde</div>
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h3>Eventos de Hoje</h3>
+                    </div>
                     <div class="card-body">
-                        <form id="profileForm" th:action="@{/dashboard/atualizar-perfil}" method="post">
-                            <div class="row">
-                                <div class="col-md-4 mb-3">
-                                    <label for="peso" class="form-label">Peso (kg)</label>
-                                    <input type="number" id="peso" name="peso" th:value="${usuario.peso != null ? usuario.peso : ''}" 
-                                           class="form-control" step="0.1" min="30" max="300" required aria-describedby="pesoHelp">
-                                    <div id="pesoHelp" class="form-text">Insira um valor entre 30 e 300 kg.</div>
+                        <ul class="list-group">
+                            <li th:each="evento : ${eventos}" class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong th:text="${evento.titulo}"></strong>
+                                    <span th:text="${#temporals.format(evento.start, 'HH:mm')}"></span>
                                 </div>
-                                <div class="col-md-4 mb-3">
-                                    <label for="altura" class="form-label">Altura (m)</label>
-                                    <input type="number" id="altura" name="altura" th:value="${usuario.altura != null ? usuario.altura : ''}" 
-                                           class="form-control" step="0.01" min="1.0" max="2.5" required aria-describedby="alturaHelp">
-                                    <div id="alturaHelp" class="form-text">Insira um valor entre 1,0 e 2,5 m.</div>
+                                <div>
+                                    <a th:href="@{/evento(id=${evento.id})}" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i></a>
+                                    <form th:action="@{/evento/deletar/{id}(id=${evento.id})}" method="post" class="d-inline">
+                                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Deseja excluir este evento?');"><i class="bi bi-trash"></i></button>
+                                    </form>
                                 </div>
-                                <div class="col-md-4 mb-3">
-                                    <label for="idade" class="form-label">Idade (anos)</label>
-                                    <input type="number" id="idade" name="idade" th:value="${usuario.idade != null ? usuario.idade : ''}" 
-                                           class="form-control" min="10" max="120" required aria-describedby="idadeHelp">
-                                    <div id="idadeHelp" class="form-text">Insira uma idade entre 10 e 120 anos.</div>
+                            </li>
+                            <li th:if="${#lists.isEmpty(eventos)}" class="list-group-item">Nenhum evento hoje</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h3>Treinos de Hoje</h3>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group">
+                            <li th:each="treino : ${treinos}" class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong th:text="${treino.descricao}"></strong>
+                                    <span th:text="${#temporals.format(treino.data, 'HH:mm')}"></span>
                                 </div>
-                            </div>
-                            <button type="submit" class="btn btn-primary">Atualizar Perfil e Calcular IMC</button>
-                        </form>
-
-                        <!-- BMI Results -->
-                        <div th:if="${imc != null}" class="mt-4">
-                            <h5>Seu IMC: <span th:text="${#numbers.formatDecimal(imc, 1, 2)}"></span></h5>
-                            <p>Nível: <span th:text="${nivelImc}"></span></p>
-                            <p class="text-muted">Condição Saudável: IMC entre 18,5 e 24,9 (Peso Normal).</p>
-
-                            <!-- Health Plan -->
-                            <div class="mt-3">
-                                <h5>Plano Saudável Personalizado</h5>
-                                <h6>Sono</h6>
-                                <p th:if="${idade < 18}">Recomenda-se 9 a 11 horas de sono por noite para adolescentes.</p>
-                                <p th:if="${idade >= 18 and idade <= 64}">Recomenda-se 7 a 9 horas de sono por noite para adultos.</p>
-                                <p th:if="${idade > 64}">Recomenda-se 7 a 8 horas de sono por noite para idosos.</p>
-                                <p class="text-muted">Dica: Mantenha um horário fixo para dormir e evite telas antes de dormir.</p>
-
-                                <h6>Atividades Físicas</h6>
-                                <p th:if="${imc < 18.5}">Você está abaixo do peso. Sugerimos 30 minutos de exercícios leves (como caminhada) 5 vezes por semana e treinos de fortalecimento muscular 2 vezes por semana para ganhar massa.</p>
-                                <p th:if="${imc >= 18.5 and imc <= 24.9}">Você está no peso normal. Mantenha 150 minutos de atividade aeróbica moderada por semana (ex.: corrida leve) e 2 sessões de treino de força.</p>
-                                <p th:if="${imc >= 25 and imc <= 29.9}">Você está com sobrepeso. Sugerimos 200 minutos de atividade aeróbica moderada por semana (ex.: natação) e 3 sessões de treino de força para queimar calorias.</p>
-                                <p th:if="${imc >= 30}">Você está com obesidade. Comece com 150 minutos de atividade leve (ex.: caminhada) por semana, aumentando gradualmente, e consulte um profissional para treinos específicos.</p>
-
-                                <h6>Refeições</h6>
-                                <p th:if="${imc < 18.5}">Aumente a ingestão calórica com refeições ricas em proteínas e carboidratos saudáveis (ex.: frango, batata-doce, abacate). Faça 5-6 refeições por dia.</p>
-                                <p th:if="${imc >= 18.5 and imc <= 24.9}">Mantenha uma dieta equilibrada com 3 refeições principais e 2 lanches. Inclua proteínas magras, vegetais e grãos integrais (ex.: salmão, brócolis, quinoa).</p>
-                                <p th:if="${imc >= 25 and imc <= 29.9}">Reduza calorias com refeições ricas em fibras e proteínas, e evite açúcares processados (ex.: salada com frango grelhado, frutas). Faça 4-5 refeições controladas por dia.</p>
-                                <p th:if="${imc >= 30}">Priorize refeições com baixo índice glicêmico e controle de porções (ex.: vegetais, ovos, leguminosas). Faça 4 refeições por dia e consulte um nutricionista.</p>
-
-                                <h6>Metas Semanais</h6>
-                                <ul>
-                                    <li>Sono: Atingir a meta de horas de sono recomendadas em pelo menos 6 noites por semana.</li>
-                                    <li>Atividades Físicas: Completar pelo menos 80% das sessões de exercícios planejadas.</li>
-                                    <li>Refeições: Seguir a dieta recomendada em pelo menos 5 dias da semana.</li>
-                                </ul>
-                            </div>
-                        </div>
+                                <div>
+                                    <a th:href="@{/treino(id=${treino.id})}" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i></a>
+                                    <form th:action="@{/treino/deletar/{id}(id=${treino.id})}" method="post" class="d-inline">
+                                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Deseja excluir este treino?');"><i class="bi bi-trash"></i></button>
+                                    </form>
+                                </div>
+                            </li>
+                            <li th:if="${#lists.isEmpty(treinos)}" class="list-group-item">Nenhum treino hoje</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h3>Refeições de Hoje</h3>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group">
+                            <li th:each="refeicao : ${refeicoes}" class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong th:text="${refeicao.descricao}"></strong>
+                                    <span th:text="${#temporals.format(refeicao.data, 'HH:mm')}"></span>
+                                </div>
+                                <div>
+                                    <a th:href="@{/alimentacao(id=${refeicao.id})}" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i></a>
+                                    <form th:action="@{/alimentacao/deletar/{id}(id=${refeicao.id})}" method="post" class="d-inline">
+                                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Deseja excluir esta refeição?');"><i class="bi bi-trash"></i></button>
+                                    </form>
+                                </div>
+                            </li>
+                            <li th:if="${#lists.isEmpty(refeicoes)}" class="list-group-item">Nenhuma refeição hoje</li>
+                        </ul>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Alert Container -->
-    <div class="alert-container" id="alertContainer"></div>
-
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay">Carregando...</div>
-
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="/webjars/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script>
-        $(document).ready(function() {
-            const loadingOverlay = $('#loadingOverlay');
-            const csrfToken = $('meta[name="_csrf"]').attr('content');
-            const csrfHeader = $('meta[name="_csrf_header"]').attr('content');
-
-            // Show alert
-            function showAlert(message, type) {
-                const alertDiv = $('<div>', {
-                    class: `alert alert-${type} alert-dismissible fade show`,
-                    role: 'alert',
-                    html: `${message}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`
-                });
-                $('#alertContainer').append(alertDiv);
-                setTimeout(() => alertDiv.remove(), 5000);
-            }
-
-            // Toggle loading
-            function toggleLoading(show) {
-                loadingOverlay.css('display', show ? 'flex' : 'none');
-            }
-
-            // Form validation and AJAX submission
-            $('#profileForm').on('submit', function(e) {
-                e.preventDefault();
-                const peso = parseFloat($('#peso').val());
-                const altura = parseFloat($('#altura').val());
-                const idade = parseInt($('#idade').val());
-
-                if (peso < 30 || peso > 300) {
-                    showAlert('Peso deve estar entre 30 e 300 kg.', 'warning');
-                    return;
-                }
-                if (altura < 1.0 || altura > 2.5) {
-                    showAlert('Altura deve estar entre 1,0 e 2,5 m.', 'warning');
-                    return;
-                }
-                if (idade < 10 || idade > 120) {
-                    showAlert('Idade deve estar entre 10 e 120 anos.', 'warning');
-                    return;
-                }
-
-                toggleLoading(true);
-                $.ajax({
-                    url: '/dashboard/atualizar-perfil',
-                    type: 'POST',
-                    data: $(this).serialize(),
-                    beforeSend: function(xhr) {
-                        xhr.setRequestHeader(csrfHeader, csrfToken);
-                    },
-                    success: function() {
-                        showAlert('Perfil atualizado com sucesso!', 'success');
-                        location.reload(); // Reload to update BMI
-                    },
-                    error: function(xhr) {
-                        showAlert('Erro ao atualizar perfil: ' + (xhr.responseJSON?.error || xhr.statusText), 'danger');
-                    },
-                    complete: function() {
-                        toggleLoading(false);
-                    }
-                });
-            });
+        document.getElementById('perfilForm').addEventListener('submit', function() {
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('loadingSpinner').classList.remove('d-none');
         });
     </script>
 </body>

@@ -30,6 +30,10 @@ public class PlanoSaude {
     @NotNull(message = "Tipo é obrigatório")
     private TipoPlano tipo;
 
+    @Column(nullable = false)
+    @NotBlank(message = "Nome é obrigatório")
+    private String nome;
+
     @Column(nullable = false, columnDefinition = "TEXT")
     @NotBlank(message = "Descrição é obrigatória")
     private String descricao;
@@ -50,4 +54,5 @@ public class PlanoSaude {
     public enum TipoPlano {
         TREINO, DIETA
     }
+
 }
