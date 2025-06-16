@@ -127,6 +127,7 @@ public class CalendarioController {
             @RequestBody Map<String, Object> eventoData,
             Authentication authentication) {
         try {
+            // Authentication check
             if (authentication == null || !authentication.isAuthenticated()) {
                 return ResponseEntity.status(401).body(Map.of("error", "Usuário não autenticado"));
             }
@@ -134,14 +135,19 @@ public class CalendarioController {
             Usuario usuario = usuarioService.findByEmail(email)
                     .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
 
+            // Validate title
             String title = (String) eventoData.get("title");
             if (title == null || title.isBlank()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Título é obrigatório"));
             }
+
+            // Parse dates
             LocalDateTime start = LocalDateTime.parse((String) eventoData.get("start"), formatter);
             LocalDateTime end = eventoData.get("end") != null ? LocalDateTime.parse((String) eventoData.get("end"), formatter) : null;
             String description = eventoData.get("description") != null ? (String) eventoData.get("description") : null;
             logger.info(description);
+
+            // Create and save event
             Evento evento = new Evento();
             evento.setUsuario(usuario);
             evento.setTitle(title);
@@ -150,7 +156,7 @@ public class CalendarioController {
             evento.setDescription(description);
             planoService.salvarEvento(evento);
             logger.info("Evento criado para usuário ID {}: {}", usuario.getId(), title);
-            return ResponseEntity.ok(Map.of("success", true));
+            return ResponseEntity.ok(Map.of());
         } catch (DateTimeParseException e) {
             logger.error("Erro ao parsear datas: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", "Formato de data inválido"));
@@ -162,15 +168,7 @@ public class CalendarioController {
             return ResponseEntity.status(500).body(Map.of("error", "Erro interno do servidor"));
         }
     }
-
-    @Operation(summary = "Atualizar um evento existente", description = "Atualiza um evento do usuário autenticado com base no ID")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Evento atualizado com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos ou formato de data incorreto"),
-            @ApiResponse(responseCode = "401", description = "Usuário não autenticado"),
-            @ApiResponse(responseCode = "403", description = "Evento não pertence ao usuário"),
-            @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
-    })
+    
     @PutMapping("/eventos/{id}")
     public ResponseEntity<?> atualizarEvento(
             @Parameter(description = "ID do evento a ser atualizado", required = true)
@@ -194,7 +192,7 @@ public class CalendarioController {
             LocalDateTime end = eventoData.get("end") != null ? LocalDateTime.parse((String) eventoData.get("end"), formatter) : null;
             String description = eventoData.get("description") != null ? (String) eventoData.get("description") : null;
 
-            return ResponseEntity.ok(Map.of("success", true));
+            return ResponseEntity.ok(Map.of());
         } catch (DateTimeParseException e) {
             logger.error("Erro ao parsear datas: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", "Formato de data inválido"));
@@ -229,7 +227,7 @@ public class CalendarioController {
                     .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + email));
           
             logger.info("Evento excluído para usuário ID {}: ID {}", usuario.getId(), id);
-            return ResponseEntity.ok(Map.of("success", true));
+            return ResponseEntity.ok(Map.of());
         } catch (IllegalArgumentException e) {
             logger.error("Erro ao excluir evento: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -271,7 +269,7 @@ public class CalendarioController {
             refeicao.setData(data);
             planoService.salvarRefeicao(refeicao);
             logger.info("Refeição criada para usuário ID {}: {}", usuario.getId(), descricao);
-            return ResponseEntity.ok(Map.of("success", true));
+            return ResponseEntity.ok(Map.of());
         } catch (DateTimeParseException e) {
             logger.error("Erro ao parsear data: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", "Formato de data inválido"));
@@ -315,7 +313,7 @@ public class CalendarioController {
 
             
             logger.info("Refeição atualizada para usuário ID {}: ID {}", usuario.getId(), id);
-            return ResponseEntity.ok(Map.of("success", true));
+            return ResponseEntity.ok(Map.of());
         } catch (DateTimeParseException e) {
             logger.error("Erro ao atualizar refeição: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

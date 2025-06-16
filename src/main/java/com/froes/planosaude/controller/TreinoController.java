@@ -135,7 +135,7 @@ public class TreinoController {
             treino.setData(data);
             planoService.salvarTreino(treino);
             logger.info("Treino adicionado para usuário ID {}: {}", usuario.getId(), descricao);
-            return ResponseEntity.ok(Map.of("success", true));
+            return ResponseEntity.ok(Map.of());
         } catch (DateTimeParseException e) {
             logger.error("Erro ao parsear data: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", "Formato de data inválido"));
