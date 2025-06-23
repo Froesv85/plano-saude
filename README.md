@@ -262,11 +262,11 @@ CREATE TABLE usuario_peso (
 - As chaves estrangeiras garantem que cada registro esteja vinculado a um usuário válido. O campo `plano_saude_id` é opcional (NULLABLE) para permitir registros não associados a um plano específico.
 - O `spring.jpa.hibernate.ddl-auto=update` cria/atualiza as tabelas automaticamente, but the SQL script can be used for manual initialization.
 
-## Project Dependencies and Build Configuration
+## Dependências do Projeto e Configuração de Build
 
-The project is built using Maven and relies on Spring Boot 3.3.4. Below are the key dependencies and build configurations defined in the `pom.xml`.
+O projeto foi criado usando Maven e utiliza o Spring Boot 3.3.4. Abaixo estão as principais dependências e configurações de build definidas no  `pom.xml`.
 
-### Dependencies
+### Dependências 
 - **Spring Boot Starters**:
   - `spring-boot-starter-web`: For building RESTful web services.
   - `spring-boot-starter-data-jpa`: For database access with Spring Data JPA.
@@ -299,7 +299,7 @@ The project is built using Maven and relies on Spring Boot 3.3.4. Below are the 
   - `maven-checkstyle-plugin` (3.5.0): Enforces Google Checkstyle rules during the `validate` phase (version 10.18.2).
   - `spotbugs-maven-plugin` (4.8.6): Performs static code analysis during the `verify` phase with maximum effort and low threshold.
 
-### Notes
+### Notas
 - Ensure the `br.org.catolicasc:catrh` dependency is available in your Maven repository or local build environment.
 - The `mysql-connector-j` version (9.1.0) is newer than some older MySQL servers may support. Test connectivity or downgrade to `8.0.33` if needed.
 - Checkstyle and SpotBugs enforce code quality, so run `mvn validate` and `mvn verify` to ensure compliance before building.
